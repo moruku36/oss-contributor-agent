@@ -102,6 +102,8 @@ The primary mode is a **daily morning batch** (GitHub Actions cron,
 deliver a digest report. An optional watch daemon mode polls more
 frequently for operators who want it. See
 [docs/architecture.md](docs/architecture.md) for the full design.
+Background research notes are collected in
+[docs/references/index.md](docs/references/index.md).
 
 ## Status
 

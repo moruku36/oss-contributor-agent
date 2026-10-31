@@ -101,6 +101,9 @@ tests/              pytest スイート
 ダイジェストレポートを届けます。任意のウォッチデーモンモードでは、
 より頻繁なポーリングも可能です。全体設計は
 [docs/architecture.ja.md](docs/architecture.ja.md) を参照してください。
+設計の背景にある調査ノートは
+[docs/references/index.ja.md](docs/references/index.ja.md) に
+まとめています。
 
 ## ステータス
 
