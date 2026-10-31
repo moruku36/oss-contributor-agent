@@ -1,0 +1,34 @@
+# Global safety and cost rules for the Autonomous OSS Contributor Agent.
+#
+# These limits are deliberately conservative. The design principle is
+# fail-closed: when anything is uncertain, skip the issue, log the reason,
+# and move on. A skipped issue costs nothing; a bad PR costs trust.
+
+rules:
+  # --- Coder loop -------------------------------------------------------
+  max_patch_attempts: 5            # Self-healing retries per issue, then give up
+  per_issue_timeout_minutes: 45    # Hard wall-clock limit per issue
+  per_issue_token_budget: 200000   # Placeholder; tune per model in Phase 1
+
+  # --- Scheduling / volume caps (anti-spam) ------------------------------
+  max_draft_prs_per_day: 1         # Global cap across all targets
+  max_draft_prs_per_project_per_week: 2
+  per_project_cooldown_days: 3     # Minimum gap between attempts on one project
+  max_issues_attempted_per_day: 3  # Includes failed attempts
+
+  # --- Daily run budget ---------------------------------------------------
+  daily_token_budget: 1000000      # Placeholder; hard stop when exceeded
+  daily_time_budget_minutes: 120
+
+  # --- Triage --------------------------------------------------------------
+  triage_accept_threshold: 0.60    # Rule score >= this -> candidate
+  triage_skip_threshold: 0.40      # Rule score <  this -> skip, no LLM call
+  # Scores between the two thresholds go to the LLM triage stage.
+
+  # --- Human-in-the-loop ----------------------------------------------------
+  draft_only: true                 # The agent only ever creates DRAFT PRs
+  require_human_approval: true     # No submission without explicit approval
+  ai_disclosure_in_pr: true        # Every PR body carries the AI disclosure line
+
+  # --- Failure policy --------------------------------------------------------
+  fail_closed: true                # On any uncertainty: skip + log, never guess

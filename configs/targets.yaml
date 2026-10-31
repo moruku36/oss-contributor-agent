@@ -1,0 +1,81 @@
+# Target repositories for the Autonomous OSS Contributor Agent.
+#
+# Every target starts with `enabled: false`. A human reviews the project's
+# CONTRIBUTING.md, CLA/DCO requirements and community norms, fills in the
+# to-verify fields, and only then flips `enabled` to true.
+#
+# Commands below are best-known defaults and are marked to-verify: they must
+# be confirmed against each project's own documentation before the first run.
+
+targets:
+  - repo: mattermost/mattermost
+    enabled: false
+    languages: [go, typescript, react]
+    watch_labels:
+      - good first issue
+      - help wanted
+      - bug
+      - documentation
+    # To verify against CONTRIBUTING.md / Makefile before enabling.
+    build_command: "make build"            # to-verify
+    test_command: "make test"              # to-verify
+    lint_command: "golangci-lint run"      # to-verify (Go side)
+    format_command: ""                     # to-verify (per sub-project)
+    default_branch: master                 # to-verify
+    branch_prefix: "oss-agent/"
+    commit_convention: conventional-commits # to-verify
+    dco_required: check CONTRIBUTING.md
+    cla_required: check CONTRIBUTING.md
+    pr_template: check .github/PULL_REQUEST_TEMPLATE.md
+    notes: >
+      Large monorepo (server + webapp). Start with documentation and
+      small server-side issues only. CLA/DCO specifics must be confirmed
+      by a human before enabling.
+
+  - repo: grafana/grafana
+    enabled: false
+    languages: [go, typescript]
+    watch_labels:
+      - good first issue
+      - help wanted
+      - bug
+      - documentation
+    # To verify against CONTRIBUTING.md / Makefile before enabling.
+    build_command: "make build"            # to-verify
+    test_command: "go test ./..."          # to-verify (scope per package)
+    lint_command: "make lint-go"           # to-verify
+    format_command: ""                     # to-verify (gofmt / prettier)
+    default_branch: main                   # to-verify
+    branch_prefix: "oss-agent/"
+    commit_convention: conventional-commits # to-verify
+    dco_required: check CONTRIBUTING.md
+    cla_required: check CONTRIBUTING.md
+    pr_template: check .github/PULL_REQUEST_TEMPLATE.md
+    notes: >
+      Very large, fast-moving repository. Restrict early attempts to
+      documentation and narrowly scoped backend packages. CLA/DCO
+      specifics must be confirmed by a human before enabling.
+
+  - repo: prometheus/prometheus
+    enabled: false
+    languages: [go]
+    watch_labels:
+      - good first issue
+      - help wanted
+      - bug
+      - documentation
+    # To verify against CONTRIBUTING.md / Makefile before enabling.
+    build_command: "make build"            # to-verify
+    test_command: "make test"              # to-verify
+    lint_command: "make lint"              # to-verify (golangci-lint)
+    format_command: "gofmt -l ."           # to-verify
+    default_branch: main                   # to-verify
+    branch_prefix: "oss-agent/"
+    commit_convention: conventional-commits # to-verify
+    dco_required: check CONTRIBUTING.md    # Prometheus is known to use DCO sign-off; confirm wording
+    cla_required: check CONTRIBUTING.md
+    pr_template: check .github/PULL_REQUEST_TEMPLATE.md
+    notes: >
+      Single-language (Go) repository with a well-defined Makefile.
+      Good first target once the pipeline reaches Phase 3. DCO sign-off
+      wording must be confirmed by a human before enabling.
