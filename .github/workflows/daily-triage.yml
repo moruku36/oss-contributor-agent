@@ -1,0 +1,38 @@
+name: Daily triage (report mode)
+
+# 06:30 JST every day = 21:30 UTC the previous day.
+# Until the pipeline is fully implemented this runs in dry-run /
+# report mode only: it never opens pull requests.
+on:
+  schedule:
+    - cron: "30 21 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+      - name: Run the test suite first (fail fast)
+        run: python -m pytest tests/ -q
+      - name: Collection pass (dry-run / report mode)
+        run: |
+          mkdir -p reports
+          python scripts/watch_repos.py --dry-run | tee reports/daily-triage.txt
+      - name: Upload the daily report
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-triage-report
+          path: reports/
+          retention-days: 30
