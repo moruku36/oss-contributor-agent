@@ -136,7 +136,6 @@ targets:
     languages: [typescript]
     watch_labels:
       - good first issue
-      - bug
     # To verify against CONTRIBUTING.md / Makefile before enabling.
     build_command: "pnpm install --frozen-lockfile" # from CONTRIBUTING.md (source deps)
     test_command: "pnpm test"              # to-verify (focused runs per CONTRIBUTING.md)
@@ -157,6 +156,9 @@ targets:
       start from an issue. Hard cap of 20 open PRs per author.
       Refactor-only and test/CI-only PRs are not accepted.
       Label counts as of 2026-11-01: good first issue 1 open,
-      help wanted 0, bug 664 open (large; trim watch_labels if the
-      digest gets noisy). Source work needs Node 24.22.1+ (midorun has
-      Node 22; collection is unaffected).
+      help wanted 0, bug 664 open. The bug label was included at first
+      and produced 200+ candidates in the initial drain, so the owner
+      narrowed watch_labels to good first issue only the same day
+      (2026-11-01). Issues already in the ledger keep their outcomes
+      but are no longer re-listed. Source work needs Node 24.22.1+
+      (midorun has Node 22; collection is unaffected).

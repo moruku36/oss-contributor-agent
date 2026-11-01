@@ -140,3 +140,7 @@ midorun の `authorized_keys` には次の鍵を登録済みです。
 
 どちらも `enabled: true` + `mode: collect-only` で、収集と
 トリアージのみです。
+
+なお OpenClaw は当初 bug ラベル（664 件）も対象にしましたが、
+初回収集で候補が 200 件を超えたため、同日中にオーナー判断で
+good first issue のみに絞りました。
