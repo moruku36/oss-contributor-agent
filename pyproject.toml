@@ -4,14 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oss-contributor-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "Autonomous OSS contributor agent: triages issues, verifies patches in an isolated sandbox, and prepares draft PRs for human review."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Kentaro Mori" }]
-# Stdlib-first by design: no hard runtime dependencies yet.
-dependencies = []
+# Stdlib-first by design: HTTP and SQLite use the standard library.
+# PyYAML is the one runtime dependency, for the configs/*.yaml files.
+dependencies = ["PyYAML>=6"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]

@@ -73,12 +73,15 @@ LLM が生成した PR が OSS プロジェクトに殺到しています。そ�
 
 | プロジェクト | 言語 | 備考 |
 | --- | --- | --- |
-| mattermost/mattermost | Go、TypeScript/React | 無効状態で開始。ドキュメントと小さなサーバー側 Issue から |
-| grafana/grafana | Go、TypeScript | 無効状態で開始。スコープの狭いパッケージのみ |
-| prometheus/prometheus | Go | 無効状態で開始。単一言語、Makefile 駆動 |
+| mattermost/mattermost | Go、TypeScript/React | 収集のみ有効。ドキュメントと小さなサーバー側 Issue から |
+| grafana/grafana | Go、TypeScript | 収集のみ有効。スコープの狭いパッケージのみ |
+| prometheus/prometheus | Go | 収集のみ有効。単一言語、Makefile 駆動 |
 
-対象は `configs/targets.yaml` にあり、すべて `enabled: false` で
-始まります。有効化の前に、人間が各プロジェクトのルールを確認します。
+対象は `configs/targets.yaml` にあります。各対象には `mode` があり、
+`collect-only`（収集のみ）ではパッチ試行と PR 作成が一切できません。
+Phase 1 では上記 3 件を `enabled: true` + `mode: collect-only` で
+有効化しています。`mode: full` への変更は、各プロジェクトのルールを
+人間が確認した後にのみ行う判断です。
 
 ## リポジトリ構成
 
@@ -94,6 +97,45 @@ tests/              pytest スイート
 .github/workflows/  CI とデイリー・トリアージのスケジュール
 ```
 
+## 動かし方（Phase 1）
+
+セットアップ（依存は PyYAML のみ、テスト用に pytest）：
+
+```bash
+pip install -e .            # または pip install pyyaml
+pip install pytest          # テストを実行する場合
+python3 -m pytest tests/ -q
+```
+
+収集パスを 1 回実行します（有効な対象すべて）：
+
+```bash
+# 任意：レート制限が緩和されます。なくても公開リポジトリは読めます
+export GITHUB_TOKEN=<your token>
+python3 scripts/watch_repos.py --once
+```
+
+結果は 2 か所に出ます。レジャー `state/ledger.sqlite3`（git 管理外）
+と、その日のダイジェスト `reports/digest-YYYY-MM-DD.md`（git 管理外）
+です。再実行しても、判定済みの Issue が再トリアージされることは
+ありません。
+
+境界帯の Issue への LLM トリアージは、環境変数で有効化します。
+未設定の場合、境界帯は `pending_llm` 状態で保持され（推測で判定
+されることはありません）、設定後の実行で判定されます：
+
+```bash
+export LLM_TRIAGE_PROVIDER=openai        # または anthropic
+export LLM_TRIAGE_MODEL=gpt-4o-mini      # 任意（既定あり）
+export OPENAI_API_KEY=<your key>         # プロバイダ側のキー
+python3 scripts/watch_repos.py --once
+```
+
+`python3 scripts/watch_repos.py --daemon` で定期ポーリングも可能
+です（既定 60 分間隔、`--interval-minutes` で変更）。対象が
+collect-only の間、`scripts/run_agent.py` の単一 Issue 実行は
+パッチ試行を拒否します。
+
 ## スケジューリング
 
 主モードは **毎朝のバッチ実行**（GitHub Actions の cron、06:30 JST）
@@ -107,18 +149,22 @@ tests/              pytest スイート
 
 ## ステータス
 
-**設計 + スキャフォールド v0.1 — 実装進行中。**
+**Phase 1 実装済み（v0.2）— Collector + トリアージが動作します。**
 
-現時点にあるもの：全体設計ドキュメント、設定スキーマ、モジュール
-スケルトン、テスト付きで動作する決定的トリアージスコアラー、
-CLI エントリポイント（ドライラン）、CI。Collector、サンドボックス、
-Coder Loop は下記ロードマップに従ってフェーズごとに実装します。
+現時点にあるもの：全体設計ドキュメント、設定スキーマ、GitHub API
+による Issue 収集、SQLite レジャー、テスト付きで動作する決定的
+トリアージスコアラー、境界帯への LLM トリアージ（プロバイダ差し
+替え可能、未設定時は pending 保持）、デイリーダイジェスト、CI。
+対象 3 件は収集のみ有効で、パッチ試行と PR 作成は構造的にも設定
+的にも不可能です。サンドボックスと Coder Loop は Phase 2 以降で
+実装します。
 
 ## ロードマップ
 
-- **Phase 0** — 設計とスキャフォールド（現在の状態）。
+- **Phase 0** — 設計とスキャフォールド（完了）。
 - **Phase 1** — Collector + トリアージ：Issue 収集、レジャー、
-  境界帯への LLM トリアージ、デイリーダイジェスト。
+  境界帯への LLM トリアージ、デイリーダイジェスト（完了。
+  対象は収集のみ有効化）。
 - **Phase 2** — サンドボックス + Coder Loop。対象はドキュメントと
   タイポの Issue のみで演習します。
 - **Phase 3** — コンプライアンスガード + 人間承認ゲート付きの

@@ -73,13 +73,16 @@ volume.
 
 | Project | Languages | Notes |
 | --- | --- | --- |
-| mattermost/mattermost | Go, TypeScript/React | Starts disabled; docs and small server issues first |
-| grafana/grafana | Go, TypeScript | Starts disabled; narrowly scoped packages only |
-| prometheus/prometheus | Go | Starts disabled; single-language, Makefile-driven |
+| mattermost/mattermost | Go, TypeScript/React | Collection only; docs and small server issues first |
+| grafana/grafana | Go, TypeScript | Collection only; narrowly scoped packages only |
+| prometheus/prometheus | Go | Collection only; single-language, Makefile-driven |
 
-Targets live in `configs/targets.yaml` and all start with
-`enabled: false`. A human verifies each project's rules before
-enabling it.
+Targets live in `configs/targets.yaml`. Each target carries a
+`mode`: with `collect-only`, patch attempts and PR creation are
+impossible for that target regardless of any other setting. For
+Phase 1 the three targets above are `enabled: true` with
+`mode: collect-only`. Moving a target to `mode: full` is a human
+decision, made only after verifying that project's rules.
 
 ## Repository layout
 
@@ -95,6 +98,46 @@ tests/              pytest suite
 .github/workflows/  CI and the daily triage schedule
 ```
 
+## Running it (Phase 1)
+
+Setup (the only runtime dependency is PyYAML; pytest for the tests):
+
+```bash
+pip install -e .            # or: pip install pyyaml
+pip install pytest          # to run the test suite
+python3 -m pytest tests/ -q
+```
+
+Run one collection pass over all enabled targets:
+
+```bash
+# Optional: relaxes rate limits. Public repos are readable without it.
+export GITHUB_TOKEN=<your token>
+python3 scripts/watch_repos.py --once
+```
+
+Results land in the ledger at `state/ledger.sqlite3` (git-ignored)
+and in the day's digest at `reports/digest-YYYY-MM-DD.md`
+(git-ignored). Re-running never re-triages an issue that already has
+a recorded decision.
+
+LLM triage for borderline issues is enabled through environment
+variables. When unconfigured, borderline issues wait in the explicit
+`pending_llm` state — never guessed at — and are judged by the first
+run that has a provider configured:
+
+```bash
+export LLM_TRIAGE_PROVIDER=openai        # or: anthropic
+export LLM_TRIAGE_MODEL=gpt-4o-mini      # optional (provider default)
+export OPENAI_API_KEY=<your key>         # the provider's key
+python3 scripts/watch_repos.py --once
+```
+
+`python3 scripts/watch_repos.py --daemon` polls periodically
+(60 minutes by default, `--interval-minutes`). While a target is
+collect-only, the single-issue entry point
+(`scripts/run_agent.py`) refuses patch attempts for it.
+
 ## Scheduling
 
 The primary mode is a **daily morning batch** (GitHub Actions cron,
@@ -107,18 +150,23 @@ Background research notes are collected in
 
 ## Status
 
-**Design + scaffold v0.1 — implementation in progress.**
+**Phase 1 implemented (v0.2) — collector + triage are working.**
 
-What exists today: the full design documents, configuration schemas,
-the module skeleton, a working deterministic triage scorer with
-tests, CLI entry points (dry-run), and CI. The collector, sandbox,
-and coder loop are implemented phase by phase per the roadmap below.
+What exists today: the full design documents, configuration
+schemas, issue collection over the GitHub API, the SQLite ledger, a
+working deterministic triage scorer with tests, a provider-pluggable
+LLM triage stage for borderline issues (borderline issues stay
+`pending_llm` when no provider is configured), and the daily digest.
+The three targets are enabled for collection only: patch attempts
+and PR creation are impossible, both by configuration and by
+construction. The sandbox and coder loop land in Phase 2+.
 
 ## Roadmap
 
-- **Phase 0** — Design and scaffold (this state).
+- **Phase 0** — Design and scaffold (done).
 - **Phase 1** — Collector + triage: issue collection, ledger, LLM
-  triage for borderline issues, daily digest.
+  triage for borderline issues, daily digest (done; targets enabled
+  for collection only).
 - **Phase 2** — Sandbox + coder loop, exercised on documentation and
   typo issues only.
 - **Phase 3** — Compliance guard + draft PR submission behind the

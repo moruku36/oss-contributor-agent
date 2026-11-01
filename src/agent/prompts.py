@@ -30,4 +30,49 @@ PROMPT_KINDS = ("triage", "explore", "patch", "repair")
 
 def get_prompt(kind: str, language: str, project_rules: str) -> str:
     """Assemble a prompt of ``kind`` for ``language`` + project rules."""
-    raise NotImplementedError("Phase 1/2: prompt assembly")
+    raise NotImplementedError("Phase 2: coder prompt assembly")
+
+
+def triage_prompt(
+    *,
+    repo: str,
+    title: str,
+    body: str,
+    score: float,
+    reasons: list[str],
+    project_notes: str = "",
+) -> str:
+    """Prompt for the LLM triage stage (borderline band only).
+
+    The model must answer with a single JSON object:
+    ``{"accept": true|false, "rationale": "..."}``. Anything else is
+    treated as no verdict at all (fail-closed) by the caller.
+    """
+    body_excerpt = (body or "")[:4000]
+    reasons_text = "\n".join(f"- {reason}" for reason in reasons) or "- (none)"
+    notes = project_notes.strip()
+    notes_block = f"\nProject notes:\n{notes}\n" if notes else ""
+    return f"""\
+You are the triage stage of an autonomous OSS contributor agent.
+Decide whether the issue below is a suitable candidate for a small,
+fully test-verified automated fix attempt, or should be skipped.
+
+Repository: {repo}
+Issue title: {title}
+Rule-based score: {score:.2f} (borderline band)
+Rule score reasons:
+{reasons_text}
+{notes_block}
+Issue body:
+\"\"\"
+{body_excerpt}
+\"\"\"
+
+Accept only if the issue is narrow in scope, describes a concrete
+problem or a small well-specified change, and looks reproducible or
+verifiable by tests. Reject broad features, design discussions,
+vague reports, and anything needing maintainer decisions first.
+
+Respond with exactly one JSON object and nothing else:
+{{"accept": true or false, "rationale": "one or two sentences"}}
+"""

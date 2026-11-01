@@ -4,12 +4,29 @@
 # CONTRIBUTING.md, CLA/DCO requirements and community norms, fills in the
 # to-verify fields, and only then flips `enabled` to true.
 #
+# `mode` separates collection from action:
+#   collect-only — the collector may poll issues and triage them, but
+#                  patch attempts and PR creation are impossible for
+#                  this target, regardless of any other setting.
+#   full         — patch/PR paths allowed (still draft-only and behind
+#                  the human approval gate in agent_rules.yaml).
+# A target with no `mode` is treated as collect-only (fail-closed).
+# Moving a target to `full` is a human decision made only after the
+# to-verify fields below have been confirmed against the project's own
+# documentation.
+#
+# Phase 1 state: the three initial targets are enabled for COLLECTION
+# ONLY. Their build/test/CLA/DCO fields are still unverified, which is
+# fine for collection (nothing executes them) and remains a hard stop
+# for any later phase.
+#
 # Commands below are best-known defaults and are marked to-verify: they must
 # be confirmed against each project's own documentation before the first run.
 
 targets:
   - repo: mattermost/mattermost
-    enabled: false
+    enabled: true
+    mode: collect-only
     languages: [go, typescript, react]
     watch_labels:
       - good first issue
@@ -33,7 +50,8 @@ targets:
       by a human before enabling.
 
   - repo: grafana/grafana
-    enabled: false
+    enabled: true
+    mode: collect-only
     languages: [go, typescript]
     watch_labels:
       - good first issue
@@ -57,7 +75,8 @@ targets:
       specifics must be confirmed by a human before enabling.
 
   - repo: prometheus/prometheus
-    enabled: false
+    enabled: true
+    mode: collect-only
     languages: [go]
     watch_labels:
       - good first issue

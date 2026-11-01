@@ -19,6 +19,8 @@ accepted or skipped.
 
 from __future__ import annotations
 
+import re
+
 # Thresholds mirror configs/agent_rules.yaml.
 ACCEPT_THRESHOLD = 0.60
 SKIP_THRESHOLD = 0.40
@@ -112,10 +114,59 @@ def score_issue(issue: dict) -> tuple[float, list[str]]:
     return round(score, 3), reasons
 
 
-def verdict(score: float) -> str:
+def verdict(
+    score: float,
+    accept_threshold: float = ACCEPT_THRESHOLD,
+    skip_threshold: float = SKIP_THRESHOLD,
+) -> str:
     """Map a numeric score to a triage band: accept / borderline / skip."""
-    if score >= ACCEPT_THRESHOLD:
+    if score >= accept_threshold:
         return "accept"
-    if score >= SKIP_THRESHOLD:
+    if score >= skip_threshold:
         return "borderline"
     return "skip"
+
+
+# --- Signal derivation -------------------------------------------------
+# score_issue() consumes two boolean signals that a human reader would
+# spot in the issue body. The collector derives them with deliberately
+# simple, explainable heuristics; they are weak signals by design and
+# never decide anything on their own.
+
+_REPRO_MARKERS = (
+    "steps to reproduce",
+    "how to reproduce",
+    "reproduction steps",
+    "repro steps",
+    "to reproduce",
+)
+
+_TEST_MENTION = re.compile(
+    r"\btests?\b|\btesting\b|_test\.go\b|\.test\.[a-z]+$|test file",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def derive_signals(body: str | None) -> dict[str, bool]:
+    """Derive ``has_reproduction`` / ``mentions_tests`` from an issue body."""
+    text = (body or "").lower()
+    return {
+        "has_reproduction": any(marker in text for marker in _REPRO_MARKERS),
+        "mentions_tests": bool(_TEST_MENTION.search(body or "")),
+    }
+
+
+def score_issue_ref(issue: object) -> tuple[float, list[str]]:
+    """Score an ``IssueRef``-shaped object (repo/number/title/body/labels).
+
+    Convenience wrapper used by the pipeline: derives the body signals,
+    then delegates to :func:`score_issue`.
+    """
+    body = getattr(issue, "body", "") or ""
+    payload = {
+        "labels": list(getattr(issue, "labels", []) or []),
+        "title": getattr(issue, "title", "") or "",
+        "body": body,
+        **derive_signals(body),
+    }
+    return score_issue(payload)

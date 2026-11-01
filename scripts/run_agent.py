@@ -21,6 +21,16 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from src.config import (  # noqa: E402
+    CollectOnlyViolation,
+    ConfigError,
+    find_target,
+    load_targets,
+)
 
 PLANNED_FLOW = [
     "load target + global rules",
@@ -51,6 +61,26 @@ def main(argv: list[str] | None = None) -> int:
         for step, name in enumerate(PLANNED_FLOW, start=1):
             print(f"  {step}. {name}")
         return 0
+
+    # Safety gate, checked before anything else: in Phase 1 every
+    # enabled target is collect-only, so a patch attempt is refused
+    # here regardless of any other setting. Only a target a human has
+    # explicitly onboarded as mode=full in configs/targets.yaml could
+    # pass this gate — and the loop itself still lands in Phase 2/3.
+    targets_path = Path(__file__).resolve().parent.parent / "configs" / "targets.yaml"
+    try:
+        target = find_target(load_targets(targets_path), args.repo)
+    except ConfigError as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        return 2
+    if target is None:
+        print(f"Refused: {args.repo} is not a configured target.", file=sys.stderr)
+        return 2
+    try:
+        target.ensure_attempt_allowed()
+    except CollectOnlyViolation as exc:
+        print(f"Refused: {exc}", file=sys.stderr)
+        return 2
     raise NotImplementedError(
         "End-to-end run is implemented in Phase 2/3; use --dry-run for now."
     )
