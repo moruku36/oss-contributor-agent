@@ -98,3 +98,65 @@ targets:
       Single-language (Go) repository with a well-defined Makefile.
       Good first target once the pipeline reaches Phase 3. DCO sign-off
       wording must be confirmed by a human before enabling.
+
+  - repo: brave/brave-browser
+    enabled: true
+    mode: collect-only
+    languages: [cpp, javascript, typescript]
+    watch_labels:
+      - good first issue
+      - help wanted
+    # To verify against CONTRIBUTING.md / Makefile before enabling.
+    build_command: ""                      # to-verify (code lives in brave/brave-core, Chromium build)
+    test_command: ""                       # to-verify
+    lint_command: ""                       # to-verify
+    format_command: ""                     # to-verify
+    default_branch: master                 # to-verify
+    branch_prefix: "oss-agent/"
+    commit_convention: conventional-commits # to-verify
+    dco_required: check CONTRIBUTING.md
+    cla_required: check CONTRIBUTING.md
+    pr_template: check .github/PULL_REQUEST_TEMPLATE.md
+    notes: >
+      Added 2026-11-01 by owner instruction. Brave's issue tracker lives
+      in this repo (11,241 open issues; good first issue 47 and
+      help wanted 39 open as of 2026-11-01), while the code lives in
+      brave/brave-core (Chromium checkout; full builds are far too heavy
+      for the current machines, so any later phase is limited to
+      JS/TS or non-build work unless a build machine exists).
+      brave-core CONTRIBUTING.md (read 2026-11-01): AI-assisted
+      contributions are allowed, but the human contributor must
+      understand the change, build/test it manually and include the
+      evidence in the PR, be transparent about AI involvement, and
+      must not bulk-submit (new contributors start with 1-2 PRs).
+
+  - repo: openclaw/openclaw
+    enabled: true
+    mode: collect-only
+    languages: [typescript]
+    watch_labels:
+      - good first issue
+      - bug
+    # To verify against CONTRIBUTING.md / Makefile before enabling.
+    build_command: "pnpm install --frozen-lockfile" # from CONTRIBUTING.md (source deps)
+    test_command: "pnpm test"              # to-verify (focused runs per CONTRIBUTING.md)
+    lint_command: ""                       # to-verify
+    format_command: ""                     # to-verify
+    default_branch: main                   # to-verify
+    branch_prefix: "oss-agent/"
+    commit_convention: conventional-commits # to-verify
+    dco_required: check CONTRIBUTING.md
+    cla_required: check CONTRIBUTING.md (no CLA found in CONTRIBUTING.md as of 2026-11-01)
+    pr_template: check .github/PULL_REQUEST_TEMPLATE.md
+    notes: >
+      Added 2026-11-01 by owner instruction (owner uses OpenClaw daily).
+      CONTRIBUTING.md (read 2026-11-01) has an explicit section
+      "AI/Vibe-Coded PRs Welcome": no AI disclosure label required,
+      but the PR must include an Evidence section, the author must
+      confirm they understand the code, and agent-authored work should
+      start from an issue. Hard cap of 20 open PRs per author.
+      Refactor-only and test/CI-only PRs are not accepted.
+      Label counts as of 2026-11-01: good first issue 1 open,
+      help wanted 0, bug 664 open (large; trim watch_labels if the
+      digest gets noisy). Source work needs Node 24.22.1+ (midorun has
+      Node 22; collection is unaffected).

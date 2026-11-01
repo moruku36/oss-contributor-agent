@@ -120,3 +120,23 @@ midorun の `authorized_keys` には次の鍵を登録済みです。
 - レジャーとダイジェストは運行先のローカルに残ります。運行先を
   移す際は `state/ledger.sqlite3` の引き継ぎを忘れないでください
   （引き継がないと、判定済み Issue が再トリアージされます）。
+
+## 8. 対象の追加（2026-11-01）
+
+オーナー指示で対象を 2 件追加し、計 5 件になりました。
+
+- `brave/brave-browser`（ラベル： good first issue 47 件、
+  help wanted 39 件、いずれも 2026-11-01 時点のオープン数）。
+  Brave の Issue はこのリポジトリで管理され、コードは
+  `brave/brave-core`（Chromium）側にあります。brave-core の
+  CONTRIBUTING.md では AI 補助のコントリビュートが許可されて
+  いますが、人間による理解・手元でのビルド／テストと証拠の
+  提示・AI 関与の透明性が必須で、大量 PR は禁止です。
+- `openclaw/openclaw`（ラベル： good first issue 1 件、
+  bug 664 件）。CONTRIBUTING.md に「AI/Vibe-Coded PRs Welcome」
+  の節があり、AI 生成 PR が明示的に歓迎されています
+  （開示ラベル不要、Evidence の記載と内容理解の確認が必須、
+  オープン PR は著者あたり 20 件まで）。
+
+どちらも `enabled: true` + `mode: collect-only` で、収集と
+トリアージのみです。

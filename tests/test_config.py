@@ -30,6 +30,8 @@ def test_real_targets_are_enabled_collect_only() -> None:
         "mattermost/mattermost",
         "grafana/grafana",
         "prometheus/prometheus",
+        "brave/brave-browser",
+        "openclaw/openclaw",
     }
     for target in targets:
         assert target.enabled is True
