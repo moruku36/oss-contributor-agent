@@ -143,6 +143,8 @@ collect-only の間、`scripts/run_agent.py` の単一 Issue 実行は
 ダイジェストレポートを届けます。任意のウォッチデーモンモードでは、
 より頻繁なポーリングも可能です。全体設計は
 [docs/architecture.ja.md](docs/architecture.ja.md) を参照してください。
+運用の実態（Phase 1 のデプロイ構成と初回実績）は
+[docs/operations.ja.md](docs/operations.ja.md) に記録しています。
 設計の背景にある調査ノートは
 [docs/references/index.ja.md](docs/references/index.ja.md) に
 まとめています。
