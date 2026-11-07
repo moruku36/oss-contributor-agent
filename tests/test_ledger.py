@@ -101,3 +101,24 @@ def test_pending_and_infra_outcomes_are_not_terminal() -> None:
     assert OUTCOME_PENDING_LLM not in TERMINAL_OUTCOMES
     assert "infra_error" not in TERMINAL_OUTCOMES
     assert OUTCOME_CANDIDATE in TERMINAL_OUTCOMES
+
+
+def test_candidates_filter_order_and_persistence(tmp_path: Path) -> None:
+    path = tmp_path / "ledger.sqlite3"
+    with Ledger(path) as store:
+        assert store.candidates() == []
+        for number, day, outcome in [(3, 2, OUTCOME_CANDIDATE), (2, 1, OUTCOME_CANDIDATE),
+                                     (1, 1, OUTCOME_CANDIDATE), (4, 1, OUTCOME_PENDING_LLM),
+                                     (5, 1, OUTCOME_SKIPPED_LOW_SCORE)]:
+            store.upsert_seen(_issue(number), now=f"2026-11-0{day}T00:00:00+00:00")
+            store.record_triage("o/r", number, score=0.65, reasons=["reason"], outcome=outcome)
+        other = IssueRef(repo="a/r", number=9, title="other", url="")
+        store.upsert_seen(other)
+        store.record_triage("a/r", 9, score=0.7, reasons=[], outcome=OUTCOME_CANDIDATE)
+    with Ledger(path) as store:
+        rows = store.candidates()
+        assert [(r.repo, r.issue_number) for r in rows] == [("a/r", 9), ("o/r", 1), ("o/r", 2), ("o/r", 3)]
+        assert rows[1].triage_score == 0.65
+        assert rows[1].triage_reasons == ["reason"]
+        store.set_outcome("o/r", 1, "attempted")
+        assert len(store.candidates()) == 3

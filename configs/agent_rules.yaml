@@ -25,6 +25,17 @@ rules:
   triage_skip_threshold: 0.40      # Rule score <  this -> skip, no LLM call
   # Scores between the two thresholds go to the LLM triage stage.
 
+  # Body-signal weights for the deterministic scorer. Bug reports are
+  # judged on reproduction steps; every other kind of issue (feature
+  # requests, enhancements, tasks) is judged instead on detail signals
+  # in the body, because reproduction steps are meaningless there.
+  # The ScoringWeights defaults in src/collector/triager.py mirror
+  # these values; a test keeps the two in sync, like the thresholds.
+  triage_scoring:
+    reproduction_points: 0.20    # Bug report with reproduction steps
+    detail_signal_points: 0.10   # Per detail signal (use case / example / expected outcome)
+    detail_points_cap: 0.20      # Cap on the detail-signal component
+
   # --- Human-in-the-loop ----------------------------------------------------
   draft_only: true                 # The agent only ever creates DRAFT PRs
   require_human_approval: true     # No submission without explicit approval

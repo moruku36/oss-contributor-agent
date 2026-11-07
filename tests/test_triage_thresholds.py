@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.collector.triager import derive_signals, verdict
+from src.collector.triager import derive_detail_signals, derive_signals, verdict
 
 
 @pytest.mark.parametrize(
@@ -49,3 +49,24 @@ def test_derive_signals_handles_empty_body() -> None:
         "has_reproduction": False,
         "mentions_tests": False,
     }
+
+
+@pytest.mark.parametrize("body, expected", [
+    (None, []), ("", []), ("a vague request", []),
+    ("USE CASE: daily work", ["use case"]),
+    ("Example: foo", ["example"]),
+    ("```python\nprint(1)\n```", ["example"]),
+    ("Expected behaviour: done", ["expected outcome"]),
+    ("ユースケース: 集計。例えば CSV。期待結果: 保存。",
+     ["use case", "example", "expected outcome"]),
+    ("Use case: a use case. Example: x. Expected outcome: y",
+     ["use case", "example", "expected outcome"]),
+    ("Steps to reproduce: run it", []),
+])
+def test_detail_signal_derivation(body, expected) -> None:
+    assert derive_detail_signals(body) == expected
+
+
+@pytest.mark.parametrize("body", ["Steps to reproduce:", "### Steps to reproduce\n\n", "Steps to reproduce:\n\n### Expected behavior\nok"])
+def test_empty_reproduction_heading_is_not_a_reproduction(body) -> None:
+    assert derive_signals(body)["has_reproduction"] is False

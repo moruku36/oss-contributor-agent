@@ -243,3 +243,53 @@ def test_pipeline_imports_no_patch_machinery() -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_pool_includes_old_and_new_candidates_without_retriage(tmp_path: Path, monkeypatch) -> None:
+    from datetime import datetime, timezone
+    from src.collector.digest import render_digest
+
+    monkeypatch.setattr(ledger_mod, "utcnow_iso", lambda: "2026-11-07T00:00:00+00:00")
+    with ledger_mod.Ledger(tmp_path / "ledger.sqlite3") as store:
+        store.upsert_seen(ACCEPT_ISSUE, now="2026-11-01T00:00:00+00:00")
+        store.record_triage("o/r", 1, score=0.8, reasons=[], outcome=ledger_mod.OUTCOME_CANDIDATE)
+        client = FakeClient({"o/r": [BORDERLINE_ISSUE, SKIP_ISSUE]})
+        summary = run_collection_pass(
+            targets=[_target()], rules=Rules(), client=client, store=store,
+            llm=MockLLM(), now=datetime(2026, 11, 7, tzinfo=timezone.utc),
+        )
+        assert [d.number for d in summary.decisions] == [2, 3]
+        entries = {e.number: e for e in summary.candidate_pool}
+        assert set(entries) == {1, 2}
+        assert entries[1].age_days == 6
+        assert entries[1].title == ACCEPT_ISSUE.title
+        assert entries[1].url == ACCEPT_ISSUE.url
+        assert entries[1].score == 0.8
+        assert entries[2].age_days == 0
+        assert "経過 6 日" in render_digest(summary)
+        # The pool remains visible even when this run sees no issues.
+        later = run_collection_pass(
+            targets=[_target()], rules=Rules(), client=FakeClient({}), store=store,
+            llm=None, now=datetime(2026, 11, 8, tzinfo=timezone.utc),
+        )
+        assert later.decisions == []
+        assert {e.number for e in later.candidate_pool} == {1, 2}
+        assert next(e for e in later.candidate_pool if e.number == 1).age_days == 7
+
+
+def test_pipeline_uses_configured_body_weights(tmp_path: Path) -> None:
+    from src.config import load_rules
+
+    config = tmp_path / "rules.yaml"
+    config.write_text("rules:\n  triage_scoring:\n    reproduction_points: 0\n    detail_signal_points: 0.3\n    detail_points_cap: 0.3\n")
+    request = _issue("o/r", 9, ["help wanted"], "Use case: daily work")
+    with ledger_mod.Ledger(tmp_path / "ledger.sqlite3") as store:
+        summary = run_collection_pass(
+            targets=[_target()], rules=load_rules(config),
+            client=FakeClient({"o/r": [BORDERLINE_ISSUE, request]}), store=store, llm=None,
+        )
+        assert [(d.number, d.score, d.outcome) for d in summary.decisions] == [
+            (2, 0.2, ledger_mod.OUTCOME_SKIPPED_LOW_SCORE),
+            (9, 0.5, ledger_mod.OUTCOME_PENDING_LLM),
+        ]
+        assert summary.candidate_pool == []

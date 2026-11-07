@@ -18,6 +18,8 @@ from pathlib import Path
 
 import yaml
 
+from src.collector.triager import ScoringWeights
+
 MODE_COLLECT_ONLY = "collect-only"
 MODE_FULL = "full"
 _VALID_MODES = {MODE_COLLECT_ONLY, MODE_FULL}
@@ -87,6 +89,7 @@ class Rules:
     daily_time_budget_minutes: int = 120
     triage_accept_threshold: float = 0.60
     triage_skip_threshold: float = 0.40
+    triage_scoring: ScoringWeights = field(default_factory=ScoringWeights)
     draft_only: bool = True
     require_human_approval: bool = True
     ai_disclosure_in_pr: bool = True
@@ -155,8 +158,30 @@ def load_rules(path: str | Path) -> Rules:
 
     rules = Rules()
     for key in vars(rules):
+        if key == "triage_scoring":
+            continue  # nested mapping, handled explicitly below
         if key in raw:
             setattr(rules, key, raw[key])
+
+    raw_scoring = raw.get("triage_scoring", {})
+    if not isinstance(raw_scoring, dict):
+        raise ConfigError(f"{path}: 'rules.triage_scoring' must be a mapping")
+    scoring_kwargs: dict[str, float] = {}
+    for key in vars(ScoringWeights()):
+        if key not in raw_scoring:
+            continue
+        value = raw_scoring[key]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ConfigError(
+                f"{path}: triage_scoring.{key} must be a number (got {value!r})"
+            )
+        if not 0.0 <= float(value) <= 1.0:
+            raise ConfigError(
+                f"{path}: triage_scoring.{key} must be within [0, 1]"
+                f" (got {value})"
+            )
+        scoring_kwargs[key] = float(value)
+    rules.triage_scoring = ScoringWeights(**scoring_kwargs)
 
     if not (0.0 <= rules.triage_skip_threshold < rules.triage_accept_threshold <= 1.0):
         raise ConfigError(

@@ -31,7 +31,12 @@ from datetime import datetime, timezone
 
 from src.collector import ledger as ledger_mod
 from src.collector import triager
-from src.collector.digest import RepoRun, RunSummary, TriageDecision
+from src.collector.digest import (
+    CandidatePoolEntry,
+    RepoRun,
+    RunSummary,
+    TriageDecision,
+)
 from src.collector.github_client import GitHubAPIError, GitHubClient, IssueRef
 from src.collector.llm_triage import LLMTriageError, LLMTriager
 from src.config import Rules, Target
@@ -89,7 +94,7 @@ def _triage_new_issue(
     is_new: bool,
 ) -> TriageDecision:
     """Full triage for an issue with no recorded decision yet."""
-    score, reasons = triager.score_issue_ref(issue)
+    score, reasons = triager.score_issue_ref(issue, weights=rules.triage_scoring)
     band = triager.verdict(
         score,
         accept_threshold=rules.triage_accept_threshold,
@@ -299,4 +304,21 @@ def run_collection_pass(
             )
 
     summary.still_pending_llm = len(store.pending_llm())
+    summary.candidate_pool = [
+        CandidatePoolEntry(
+            repo=row.repo,
+            number=row.issue_number,
+            title=row.title,
+            url=row.url,
+            score=row.triage_score,
+            age_days=max(
+                0,
+                (
+                    summary.run_date
+                    - datetime.fromisoformat(row.first_seen_at).date()
+                ).days,
+            ),
+        )
+        for row in store.candidates()
+    ]
     return summary

@@ -3,8 +3,9 @@
 Written as Markdown under ``reports/`` (git-ignored; scheduled runs
 upload it as a CI artifact instead). The digest is deliberately
 honest: it lists what was seen, what triage decided and why, what is
-still waiting for an LLM verdict, and what went wrong — including the
-"nothing worth doing today" case, which is a legitimate result.
+still waiting for an LLM verdict, which issues are sitting in the
+candidate pool, and what went wrong — including the "nothing worth
+doing today" case, which is a legitimate result.
 """
 
 from __future__ import annotations
@@ -43,6 +44,18 @@ class RepoRun:
 
 
 @dataclass
+class CandidatePoolEntry:
+    """One issue currently waiting in the candidate pool."""
+
+    repo: str
+    number: int
+    title: str
+    url: str
+    score: float | None
+    age_days: int  # days since the issue was first seen by the collector
+
+
+@dataclass
 class RunSummary:
     """Everything the digest needs about one collection pass."""
 
@@ -50,6 +63,7 @@ class RunSummary:
     repos: list[RepoRun] = field(default_factory=list)
     decisions: list[TriageDecision] = field(default_factory=list)
     still_pending_llm: int = 0
+    candidate_pool: list[CandidatePoolEntry] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
     def decisions_with(self, *outcomes: str) -> list[TriageDecision]:
@@ -136,6 +150,25 @@ def render_digest(summary: RunSummary) -> str:
         lines.append("")
     if not any_section:
         lines += ["今回、判定対象の Issue はありませんでした。", ""]
+
+    lines += ["## 現在の候補プール", ""]
+    if summary.candidate_pool:
+        lines += [
+            "トリアージを通過し、候補のまま残っている Issue"
+            f"（全 {len(summary.candidate_pool)} 件）。",
+            "",
+        ]
+        for entry in summary.candidate_pool:
+            score = f"{entry.score:.2f}" if entry.score is not None else "—"
+            title = entry.title or "(no title)"
+            link = f"[{title}]({entry.url})" if entry.url else title
+            lines.append(
+                f"- {entry.repo}#{entry.number} {link}"
+                f"（スコア {score}、経過 {entry.age_days} 日）"
+            )
+        lines.append("")
+    else:
+        lines += ["候補プールは空です。", ""]
 
     if summary.notes:
         lines += ["## 備考", ""]

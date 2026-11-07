@@ -220,6 +220,21 @@ class Ledger:
             ).fetchall()
         return [self._to_row(row) for row in rows]
 
+    def candidates(self) -> list[LedgerRow]:
+        """Issues currently sitting in the candidate pool.
+
+        These passed triage (by rules or by LLM) and stay candidates
+        until a later phase acts on them; the daily digest lists them
+        so the pool never becomes invisible. Ordered by repo, then by
+        when each issue was first seen.
+        """
+        rows = self._conn.execute(
+            "SELECT * FROM issues WHERE outcome = ?"
+            " ORDER BY repo, first_seen_at, issue_number",
+            (OUTCOME_CANDIDATE,),
+        ).fetchall()
+        return [self._to_row(row) for row in rows]
+
     def count_by_outcome(self) -> dict[str, int]:
         rows = self._conn.execute(
             "SELECT outcome, COUNT(*) AS n FROM issues"

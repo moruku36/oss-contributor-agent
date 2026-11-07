@@ -71,3 +71,21 @@ def test_write_digest_uses_dated_filename(tmp_path: Path) -> None:
     assert path.name == "digest-2026-11-01.md"
     assert path.exists()
     assert "デイリーダイジェスト" in path.read_text(encoding="utf-8")
+
+
+def test_render_candidate_pool() -> None:
+    from src.collector.digest import CandidatePoolEntry
+    summary = RunSummary(run_date=date(2026, 11, 7), candidate_pool=[
+        CandidatePoolEntry("o/r", 7, "Old candidate", "https://example.com/7", 0.65, 6),
+        CandidatePoolEntry("o/r", 8, "", "", None, 0),
+    ])
+    text = render_digest(summary).split("## 現在の候補プール", 1)[1]
+    assert "全 2 件" in text
+    assert "o/r#7 [Old candidate](https://example.com/7)（スコア 0.65、経過 6 日）" in text
+    assert "o/r#8 (no title)（スコア —、経過 0 日）" in text
+    assert "候補プールは空です" not in text
+
+
+def test_render_empty_candidate_pool() -> None:
+    text = render_digest(_summary()).split("## 現在の候補プール", 1)[1]
+    assert "候補プールは空です。" in text
