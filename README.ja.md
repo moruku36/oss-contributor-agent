@@ -2,6 +2,20 @@
 
 [English](README.md) | 日本語
 
+## 現在の担当と運用状況（2026-11-08）
+
+- **担当引き継ぎ：** Muse（フワッチ）から Kurotchi（クロッチ）へ、moruku の依頼で管理・開発を引き継ぎました。PR 提出の最終判断は引き続き moruku が行います。
+- **現在地：** Phase 1（Issue 収集・トリアージ）が midorun（OCI）で稼働中。systemd のユーザータイマーで毎朝 **06:30 JST** に実行しています。GitHub Actions の収集ワークフローは dry-run のままで、実運用には使っていません。
+- **対象：** Mattermost、Grafana、Prometheus、Brave、OpenClaw の 5 件。すべて `collect-only` で、自動修正・PR 作成は有効にしていません。
+- **引き継ぎ時の確認：** 11/8 朝の収集は正常終了、対象 5 件とも成功。保存済み候補プールは **363 件**、LLM 判定待ちは **0 件**です。363 件すべてが新スコアリングで判定されたわけではありません。
+- **次の作業：** 11/8 実行分を基準に数日間、新規 Issue・候補の質・判定待ち・対象別エラーを観察します。その結果を踏まえて Phase 2（隔離実行環境と TDD Coder Loop）の実装・検証へ進みます。Phase 2 は計画段階で、動作実装は未完了です。
+
+レポート名の日付は UTC のため、11/8 06:30 JST の成果物は `digest-2026-11-07.md` です。日付が前日でも欠損ではありません。
+
+詳細：[運用・引き継ぎ記録](docs/operations.ja.md) ／ [Phase 2 実装計画](docs/phase2-plan.ja.md)
+
+以下はプロジェクト全体の目的・設計です。現在実装済みの範囲は上記と「ステータス」を参照してください。
+
 オープンソースプロジェクトへの貢献を支援するエージェントです。
 ただし、低品質な「AI スパム PR」の発生源には絶対になりません。
 
@@ -69,17 +83,19 @@ LLM が生成した PR が OSS プロジェクトに殺到しています。そ�
 - **メンテナーの時間を尊重する。** 保守的な上限を既定にします：
   ドラフト PR は全体で 1 日最大 1 件、プロジェクトごとに週最大 2 件。
 
-## 対象プロジェクト（初期）
+## 対象プロジェクト（現在）
 
 | プロジェクト | 言語 | 備考 |
 | --- | --- | --- |
 | mattermost/mattermost | Go、TypeScript/React | 収集のみ有効。ドキュメントと小さなサーバー側 Issue から |
 | grafana/grafana | Go、TypeScript | 収集のみ有効。スコープの狭いパッケージのみ |
 | prometheus/prometheus | Go | 収集のみ有効。単一言語、Makefile 駆動 |
+| brave/brave-browser | C++、JavaScript、TypeScript | 収集のみ有効。コードは brave/brave-core 側 |
+| openclaw/openclaw | TypeScript | 収集のみ有効。`good first issue` ラベルのみ |
 
 対象は `configs/targets.yaml` にあります。各対象には `mode` があり、
 `collect-only`（収集のみ）ではパッチ試行と PR 作成が一切できません。
-Phase 1 では上記 3 件を `enabled: true` + `mode: collect-only` で
+Phase 1 では上記 5 件を `enabled: true` + `mode: collect-only` で
 有効化しています。`mode: full` への変更は、各プロジェクトのルールを
 人間が確認した後にのみ行う判断です。
 
@@ -138,9 +154,10 @@ collect-only の間、`scripts/run_agent.py` の単一 Issue 実行は
 
 ## スケジューリング
 
-主モードは **毎朝のバッチ実行**（GitHub Actions の cron、06:30 JST）
-です。新着 Issue を収集し、トリアージし、少数の試行を行い、
-ダイジェストレポートを届けます。任意のウォッチデーモンモードでは、
+現在は **midorun の systemd ユーザータイマーによる毎朝のバッチ実行**
+（06:30 JST）です。新着 Issue を収集・トリアージしてダイジェストを
+保存します。修正試行・PR 作成は行いません。GitHub Actions の
+ワークフローは dry-run のままで未使用です。任意のウォッチデーモンモードでは、
 より頻繁なポーリングも可能です。全体設計は
 [docs/architecture.ja.md](docs/architecture.ja.md) を参照してください。
 運用の実態（Phase 1 のデプロイ構成と初回実績）は
@@ -157,7 +174,7 @@ collect-only の間、`scripts/run_agent.py` の単一 Issue 実行は
 による Issue 収集、SQLite レジャー、テスト付きで動作する決定的
 トリアージスコアラー、境界帯への LLM トリアージ（プロバイダ差し
 替え可能、未設定時は pending 保持）、デイリーダイジェスト、CI。
-対象 3 件は収集のみ有効で、パッチ試行と PR 作成は構造的にも設定
+対象 5 件は収集のみ有効で、パッチ試行と PR 作成は構造的にも設定
 的にも不可能です。サンドボックスと Coder Loop は Phase 2 以降で
 実装します。
 

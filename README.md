@@ -2,6 +2,20 @@
 
 English | [日本語](README.ja.md)
 
+## Ownership and operational status (2026-11-08)
+
+- **Handover:** At moruku's request, Kurotchi has taken over maintenance and development from Muse. Moruku retains the final decision on PR submission.
+- **Running today:** Phase 1 (issue collection and triage) runs on midorun (OCI) via a systemd user timer at **06:30 JST daily**. The GitHub Actions collection workflow remains dry-run only and is not the production scheduler.
+- **Scope:** Mattermost, Grafana, Prometheus, Brave, and OpenClaw — all five targets are `collect-only`. Automated patch attempts and PR creation are not enabled.
+- **Handover baseline:** The November 8 morning run completed successfully for all five repositories, with **363 stored candidates** and **0 pending LLM decisions**. The stored pool includes earlier decisions; not all 363 candidates were assessed with the new scoring.
+- **Next:** Observe new issues, candidate quality, pending decisions, and per-target errors for several days, starting with the November 8 run. Then implement and validate Phase 2 (sandbox and TDD coder loop). Phase 2 is planned, not yet implemented.
+
+Digest filenames use UTC dates: the November 8 run at 06:30 JST produced `digest-2026-11-07.md`. The previous-day filename does not indicate a missing run.
+
+Details (Japanese): [Operations and handover](docs/operations.ja.md) / [Phase 2 implementation plan](docs/phase2-plan.ja.md).
+
+The sections below describe the overall project goals and design. For the currently implemented scope, see this section and “Status”.
+
 An agent that helps a human contribute to open-source projects —
 without ever becoming a source of low-quality "AI spam" pull requests.
 
@@ -69,18 +83,20 @@ volume.
 - **Respect maintainers' time.** Conservative caps: at most 1 draft
   PR per day globally and 2 per project per week by default.
 
-## Target projects (initial)
+## Target projects (current)
 
 | Project | Languages | Notes |
 | --- | --- | --- |
 | mattermost/mattermost | Go, TypeScript/React | Collection only; docs and small server issues first |
 | grafana/grafana | Go, TypeScript | Collection only; narrowly scoped packages only |
 | prometheus/prometheus | Go | Collection only; single-language, Makefile-driven |
+| brave/brave-browser | C++, JavaScript, TypeScript | Collection only; source code lives in brave/brave-core |
+| openclaw/openclaw | TypeScript | Collection only; watches `good first issue` only |
 
 Targets live in `configs/targets.yaml`. Each target carries a
 `mode`: with `collect-only`, patch attempts and PR creation are
 impossible for that target regardless of any other setting. For
-Phase 1 the three targets above are `enabled: true` with
+Phase 1 the five targets above are `enabled: true` with
 `mode: collect-only`. Moving a target to `mode: full` is a human
 decision, made only after verifying that project's rules.
 
@@ -140,10 +156,11 @@ collect-only, the single-issue entry point
 
 ## Scheduling
 
-The primary mode is a **daily morning batch** (GitHub Actions cron,
-06:30 JST): collect new issues, triage, attempt a small number, and
-deliver a digest report. An optional watch daemon mode polls more
-frequently for operators who want it. See
+The current scheduler is a **systemd user timer on midorun**, running
+daily at 06:30 JST to collect and triage issues and save a digest.
+It does not attempt patches or create PRs. The GitHub Actions workflow
+remains dry-run only and is not used for production collection.
+An optional watch daemon mode polls more frequently. See
 [docs/architecture.md](docs/architecture.md) for the full design.
 Background research notes are collected in
 [docs/references/index.md](docs/references/index.md).
@@ -157,7 +174,7 @@ schemas, issue collection over the GitHub API, the SQLite ledger, a
 working deterministic triage scorer with tests, a provider-pluggable
 LLM triage stage for borderline issues (borderline issues stay
 `pending_llm` when no provider is configured), and the daily digest.
-The three targets are enabled for collection only: patch attempts
+The five targets are enabled for collection only: patch attempts
 and PR creation are impossible, both by configuration and by
 construction. The sandbox and coder loop land in Phase 2+.
 
