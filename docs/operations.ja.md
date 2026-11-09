@@ -3,10 +3,12 @@
 [設計](architecture.ja.md) | 運用（本書）
 
 本書は Phase 1 の as-built 記録です。設計（architecture.ja.md）が
-「どうあるべきか」を述べるのに対し、本書は初回運用時点で
-実際に何がどこで動いているかを記録します。引き継ぎを受けた担当は
-本書から読んでください。2026-11-07 のスコアリング・候補プール改善は
-この作業コピーで検証済みですが、midorun には未デプロイです。
+「どうあるべきか」を述べるのに対し、本書は実際に何がどこで
+動いているかを記録します。引き継ぎを受けた担当は本書から読んで
+ください。2026-11-08 の Kurotchi による接続・稼働確認で、
+2026-11-07 のスコアリング・候補プール改善（`95e0f66`）が midorun に
+デプロイ済みであることを確認しました。管理担当は Muse から
+Kurotchi へ引き継ぎます。Phase 1 の収集専用モードは維持します。
 
 ## 1. 位置づけ
 
@@ -122,14 +124,15 @@ prometheus/prometheus、`enabled: true` + `mode: collect-only`）で
 
 ## 6. アクセス
 
-midorun の `authorized_keys` には次の鍵を登録済みです。
+2026-11-07 以降の運用経路は Tailscale SSH（`ubuntu` ユーザー）です。
+2026-11-08 に Kurotchi からも接続成功を確認しました。接続先の
+ホスト鍵は Muse が本体で確認した指紋と照合し、厳密な検証を
+有効にしたまま接続しています。ホスト鍵検証の無効化や ACL の
+変更は行っていません。
 
-- 運用エージェント（Muse）の鍵
-- オーナー（Windows）の鍵
-
-ホームラボ担当（Dots）の鍵は、ラウンジ（エージェント間の伝言板）
-経由で登録を依頼中です。秘密鍵そのものを伝言板やリポジトリに
-載せることはありません（受け渡すのは公開鍵のみ）。
+接続設定・登録済み鍵・認証情報の値は本書に転載しません。
+旧来の `authorized_keys` 登録に関する初回記録は Git 履歴を参照して
+ください。Dots の現在の接続成否は今回確認していません。
 
 ## 7. 注意点
 
@@ -167,3 +170,56 @@ midorun の `authorized_keys` には次の鍵を登録済みです。
 なお OpenClaw は当初 bug ラベル（664 件）も対象にしましたが、
 初回収集で候補が 200 件を超えたため、同日中にオーナー判断で
 good first issue のみに絞りました。
+
+## 9. 日次の確認方法と日付（2026-11-08 引き継ぎ確認）
+
+midorun の `ubuntu` ユーザーで、**ユーザー側**の systemd を確認します。
+システム側の同名ユニットが inactive でも、収集停止とは判断しません。
+
+```bash
+systemctl --user show oss-agent-collect.timer \
+  -p LoadState -p ActiveState -p SubState \
+  -p LastTriggerUSec -p NextElapseUSecRealtime
+systemctl --user show oss-agent-collect.service \
+  -p LoadState -p Result -p ExecMainStatus \
+  -p ExecMainStartTimestamp -p ExecMainExitTimestamp -p WorkingDirectory
+ls -lt reports/digest-*.md
+```
+
+oneshot サービスは正常終了後も inactive になります。タイマーの
+active/waiting、サービスの成功結果、実行時刻、成果物の更新時刻を
+組み合わせて判断してください。終了コード0だけでは各 repo の収集成功を
+保証しないため、ダイジェストの対象別状態と LLM 判定待ちも確認します。
+秘密を含む可能性がある Environment や秘密ファイルは表示しません。
+
+`src/collector/pipeline.py` は `datetime.now(timezone.utc)` の日付を
+`RunSummary.run_date` に設定し、`digest.py` がその日付で命名します。
+したがって **06:30 JST の定期実行は前日の UTC 日付のファイル**へ
+出力します。JST 当日名のファイルがないことだけで欠損と判断しないで
+ください。今回、命名ロジックの変更やファイル名の変更はしていません。
+
+### 最初の観察値
+
+| 項目 | 2026-11-08 の実測 |
+| --- | --- |
+| デプロイ版 | `95e0f66`、未コミット変更なし |
+| タイマー | loaded / active / waiting |
+| 実行時刻（JST） | 06:30:31〜06:30:45 |
+| サービス結果 | success / 終了コード0 |
+| 次回起動（JST） | 2026-11-09 06:30 |
+| 成果物 | `reports/digest-2026-11-07.md`、11/8 06:30 更新 |
+| 対象5 repo | 全て OK、今回の新規0件・判定0件 |
+| LLM 判定待ち | 0件 |
+| 保存済み候補プール | 363件 |
+
+候補プールには過去の判定が残り、採点変更だけでは自動再採点しません。
+363件がすべて新スコアリングで判定されたとは解釈しないでください。
+今後数日、日次レポートの新規数・候補数・判定待ち・エラーを比較します。
+この引き継ぎ作業では追加の自動監視や手動の収集を起動していません。
+
+## 10. 次の段階
+
+候補プールを数日観察してから Phase 2 実装へ進む順序を維持します。
+観察中の準備範囲と実装・検証の分割は
+[Phase 2 実装計画](phase2-plan.ja.md) を参照してください。
+PR 提出は引き続きオーナー本人の判断が必要です。
