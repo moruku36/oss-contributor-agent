@@ -2,13 +2,14 @@
 
 English | [日本語](README.ja.md)
 
-## Ownership and operational status (2026-11-08)
+## Ownership and operational status (2026-11-11)
 
 - **Handover:** At moruku's request, Kurotchi has taken over maintenance and development from Muse. Moruku retains the final decision on PR submission.
 - **Running today:** Phase 1 (issue collection and triage) runs on midorun (OCI) via a systemd user timer at **06:30 JST daily**. The GitHub Actions collection workflow remains dry-run only and is not the production scheduler.
 - **Scope:** Mattermost, Grafana, Prometheus, Brave, and OpenClaw — all five targets are `collect-only`. Automated patch attempts and PR creation are not enabled.
-- **Handover baseline:** The November 8 morning run completed successfully for all five repositories, with **363 stored candidates** and **0 pending LLM decisions**. The stored pool includes earlier decisions; not all 363 candidates were assessed with the new scoring.
-- **Next:** Observe new issues, candidate quality, pending decisions, and per-target errors for several days, starting with the November 8 run. Then implement and validate Phase 2 (sandbox and TDD coder loop). Phase 2 is planned, not yet implemented.
+- **Observation checkpoint complete (read-only coordinator verification):** November 8–11 daily collections succeeded, with **0 new issues, 0 triage decisions and 0 pending decisions each run**. The **363 historical candidates** include **319 OpenClaw items last seen November 1**; this is stored history, not fresh task selection or authority to act on an upstream issue.
+- **Development:** The first Phase 2 increment adds an explicit injectable sandbox backend contract and fail-closed, single-attempt lifecycle. No runtime backend is bundled or activated. The coordinator ran the three selected mock-only regression cases: **3 passed / one local invocation** (Python 3.13.18, 0.03 s); PR CI is pending. Real Docker isolation is unverified; workspace preparation and CoderLoop remain unfinished.
+- **Next:** Complete PR CI for this increment, then continue the injectable CoderLoop/workspace work. Source/dependency acquisition remains a separate future stage from network-disabled test execution. Overall initial-version completion is **not yet estimated**; a passing mock contract is not working Docker isolation.
 
 Digest filenames use UTC dates: the November 8 run at 06:30 JST produced `digest-2026-11-07.md`. The previous-day filename does not indicate a missing run.
 
@@ -120,9 +121,15 @@ Setup (the only runtime dependency is PyYAML; pytest for the tests):
 
 ```bash
 pip install -e .            # or: pip install pyyaml
-pip install pytest          # to run the test suite
-python3 -m pytest tests/ -q
+pip install pytest          # only when preparing an authorized test run
 ```
+
+Local verification passed the three selected cases once. PR CI and pushes to `main` select
+exactly the three mock-only cases once; feature pushes do not also run CI.
+Historical test sources remain, but are not run automatically. The owner budget
+is **10 total case executions**, including local runs, CI and retries; it does
+not reset per command or workflow. See the exact selection and execution record
+in [the Phase 2 plan](docs/phase2-plan.ja.md#4-今回の検証と実行予算).
 
 Run one collection pass over all enabled targets:
 
@@ -176,7 +183,11 @@ LLM triage stage for borderline issues (borderline issues stay
 `pending_llm` when no provider is configured), and the daily digest.
 The five targets are enabled for collection only: patch attempts
 and PR creation are impossible, both by configuration and by
-construction. The sandbox and coder loop land in Phase 2+.
+construction. The Phase 2 sandbox lifecycle contract is now implemented as an
+locally tested, unmerged contract with three passing mock-only cases. It refuses an
+unconfigured backend. CPU/memory, offline non-root execution, bounded output and
+deadlines are adapter obligations, not verified isolation. There is no Docker,
+subprocess or host-shell fallback. CoderLoop and workspace helpers remain scaffolds.
 
 ## Roadmap
 
