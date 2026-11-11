@@ -1,6 +1,6 @@
 # Local review report — proposed next increment
 
-Status: locally implemented, 2026-11-11; untested. The three-case local test invocation was denied before dispatch by native approval binding. No test success or publication is claimed.
+Status: locally implemented, 2026-11-11; untested. The three-case local test invocation was denied before dispatch by native approval binding. The owner subsequently requested feature-branch publication as Ready for review. Publication uses `[skip ci]`; it does not claim test success, acceptance, approval-binding repair, or merge authorization.
 
 ## Verified starting point
 
@@ -148,9 +148,12 @@ verification rounds, including all suite commands after assertion failures.
 The new test command was denied before dispatch: SYSTEM_RUN_DENIED, approval
 cannot safely bind this interpreter/runtime command. Tests executed: 0.
 Whitespace check passed. CI is prepared for exactly the new three cases, but
-there is no push/PR because triggering it would reroute the blocked test action.
-Resolve supported native approval binding, then verify the three cases and
-deliver the feature branch/PR. Do not rerun prior lifecycle tests.
+must not execute them as a workaround for the blocked local test action.
+The owner has explicitly requested publication as Ready for review despite this
+limitation. A documentation-only `[skip ci]` publication commit keeps this review
+publication separate from test execution; workflow definitions remain unchanged.
+Resolve supported native approval binding before test verification. Ready for
+review does not mean verified or merge-ready. Do not rerun prior lifecycle tests.
 Actual runtime/transport/source acquisition, independent isolation proof,
 compliance checks, approval-bound submission, and real end-to-end acceptance
 remain separate unfinished milestones. Initial-version completion stays
@@ -164,4 +167,5 @@ provisional **35%**; this design alone does not increase it.
 上流PR提出許可を意味せず、提出機能・collect-only設定は変更しません。
 ローカル実装と新規テスト3件は保存済みです。正式承認後のMuse Wonder応答は
 受領済みですが、新規テストは実行基盤の承認紐付けエラーで実行前に拒否され、
-実行0件・未検証です。CIへ振り替えず、push・PRは保留しています。
+実行0件・未検証です。所有者の依頼により、`[skip ci]`でCI実行を抑止したうえで
+Ready for reviewとして公開します。レビュー提出は検証成功・マージ許可を意味しません。
