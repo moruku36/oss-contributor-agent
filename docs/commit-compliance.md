@@ -39,12 +39,22 @@ This independent coordinator-authored helper is not a Muse-reviewed result.
 Three new non-parametrized cases are prepared in
 `tests/test_commit_compliance.py`: valid subject/trailer acceptance, false DCO
 body-example rejection, and malformed/unverified-policy rejection.
-They have **not executed**. The pre-existing native Python approval-binding
-failure remains unresolved; no interpreter retry or CI reroute is performed.
-Publication uses `[skip ci]`; the workflow file is unchanged and still selects
-the older report cases, not these new tests. Future verification requires the
-supported native binding correction and an explicit bounded selection.
-New commit-compliance trial: 0 cases / 0 invocations, cap 10 total.
+No successful test execution has been confirmed. The previous module-based
+command was rejected because native approval could not bind a concrete file.
+The documented correction is now prepared in `tools/check_commit_compliance.py`:
+it accepts no arguments and selects exactly the three cases above. Plugin autoload
+and inherited pytest addopts are disabled. It uses the same Python interpreter
+and native approval path, with no approval-policy or authentication changes.
+Binding the entry file does not bind its transitive imports.
+
+One corrected direct-file verification request was sent under native approval.
+The transport timed out after 90 seconds; the approval remains pending, so the
+correction is **not yet verified**. Do not resend the uncertain test request.
+No passing cases or completed test invocations have been confirmed; the pending
+selection is 3 cases and must count against the same cap of 10 if it executes.
+Publication uses `[skip ci]`; workflow definitions are unchanged and still select
+the older report cases, not these new cases. This is human-review work, not a
+claim of test or merge readiness.
 
 ## Preceding verified checkpoint
 
