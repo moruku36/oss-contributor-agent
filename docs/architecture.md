@@ -8,7 +8,7 @@ operational machinery that makes automation safe to run against other
 people's projects: scheduling, state, dedupe, scoring, sandboxing,
 human gates, budgets, and anti-spam limits.
 
-2026-11-11 implementation boundary: sandbox lifecycle is merged in PR #2. The new injection-only CoderLoop checks a green baseline, reproduced assertion failure, bounded patch proposals, the reproduction and entire declared relevant suite, then confirmed cleanup. Its three new mock-only cases passed once locally. Real backend/provider, workspace adapters, exploration/test authoring, CLI integration and Docker isolation remain unfinished or unverified. Production stays Phase 1 collect-only; overall initial-version completion is unestimated. The flow below is design, not an activation list.
+2026-11-11 implementation boundary: sandbox lifecycle and CoderLoop are owner-merged in PRs #2/#3. This increment adds a bounded memory-only [snapshot workspace](snapshot-workspace.md): validated file namespace, explicit source/test/runner roles, atomic strict text patches and complete diff export. Three new cases passed once locally, including a synthetic runner whose result changes when the actual snapshot changes through the real CoderLoop/Sandbox control classes. No filesystem, real runner/provider, Docker isolation, automatic exploration/test authoring or production CLI integration is proved. Production stays Phase 1 collect-only; overall completion is unestimated. The flow below is design, not an activation list.
 
 ## 1. Overview
 
