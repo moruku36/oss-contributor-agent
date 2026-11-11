@@ -8,8 +8,8 @@
 - **現在地：** Phase 1（Issue 収集・トリアージ）が midorun（OCI）で稼働中。systemd のユーザータイマーで毎朝 **06:30 JST** に実行しています。GitHub Actions の収集ワークフローは dry-run のままで、実運用には使っていません。
 - **対象：** Mattermost、Grafana、Prometheus、Brave、OpenClaw の 5 件。すべて `collect-only` で、自動修正・PR 作成は有効にしていません。
 - **観察チェックポイント完了（coordinatorの読取専用確認）：** 11/8〜11/11 の日次収集は成功し、毎回 **新規0・判定0・pending 0**。保存済みの **363 件**には **最終観測11/1の OpenClaw 319 件**を含みます。過去の保存値であり、修正対象の選定や上流 Issue への作業許可ではありません。
-- **開発状況：** Phase 2 の初回増分として、明示注入する backend 契約と、失敗時に閉じる単一試行の sandbox lifecycle を実装しました。実 backend の同梱・有効化はなく、mock-only 回帰3ケースは **ローカル1起動・3件合格**（Python 3.13.18、0.03秒）。PR CIは未実施です。実 Docker 隔離は未検証、workspace と CoderLoop は未完了です。
-- **次の作業：** 今回のPR CIを確認し、注入可能な CoderLoop／workspace の実装へ進みます。ソース・依存取得は将来の別段階で、ネットワーク無効のテスト実行と分離します。初期版全体の完成率は **未査定**です。mock契約の合格を実Docker隔離の完成とは扱いません。
+- **開発状況：** sandbox lifecycle の PR #2 はオーナーがマージし、local・PR・main の各3ケースが合格（計9実行）。今回は注入専用 CoderLoop を実装し、基準テスト成功→再現の assertion 失敗→上限付き修正→再現と宣言した関連スイート全体の確認→後片付け確認、の制御を追加しました。新規 mock-only 3ケースはローカル1起動で合格（Python 3.13.18、0.04秒）。今回のPR CIは未確認です。
+- **次の作業：** sandbox に束縛する workspace／runner adapter と合成統合検証。実 provider・Docker backend・ホストファイル adapter・CLI接続はありません。ソース・依存取得はネットワーク無効の実行と別工程です。初期版全体の完成率は **未査定**です。
 
 レポート名の日付は UTC のため、11/8 06:30 JST の成果物は `digest-2026-11-07.md` です。日付が前日でも欠損ではありません。
 
@@ -123,7 +123,7 @@ pip install -e .            # または pip install pyyaml
 pip install pytest          # 許可された検証の準備時のみ
 ```
 
-ローカルでは選択した3ケースを1回実行して合格しました。PR と main push の CI だけで mock-only 3ケースを
+ローカルでは新規 CoderLoop 3ケースを1回実行して合格しました。旧 lifecycle 試行は9/10実行で封印し、再実行しません。別増分の CoderLoop 試行は現在3/10、PRと将来のmainで各3件を実行すると計9/10です。PR と main push の CI だけで新規 mock-only 3ケースを
 1回選択し、feature push の重複実行を避けます。旧テストソースは残しますが
 自動では実行しません。オーナー予算はローカル・CI・再実行の合計 **10ケース**
 までで、起動単位でリセットしません。選択と実行記録は
@@ -181,11 +181,7 @@ collect-only の間、`scripts/run_agent.py` の単一 Issue 実行は
 トリアージスコアラー、境界帯への LLM トリアージ（プロバイダ差し
 替え可能、未設定時は pending 保持）、デイリーダイジェスト、CI。
 対象 5 件は収集のみ有効で、パッチ試行と PR 作成は構造的にも設定
-的にも不可能です。Phase 2 の sandbox lifecycle 契約を今回実装しましたが、
-回帰3ケースはローカル1起動で合格しました。backend 未設定は明示拒否し、CPU・メモリ・
-offline／非root実行・出力・期限の強制は将来の adapter の責務です。
-Docker・subprocess・ホストシェルへの fallback はありません。
-CoderLoop と workspace helpers は引き続き scaffold です。
+的にも不可能です。sandbox lifecycle 契約はマージ済み、注入専用 CoderLoop は実装・ローカル模擬検証済みです。未設定時は明示拒否します。呼出し側が保護済みの再現／関連スイート全体のコマンドと信頼する model／workspace adapter を指定し、自動探索・テスト作成は未実装です。使用量不明・適用不明・環境異常・後片付け未確認を成功や自動再送に変換しません。CPU・メモリ・offline／非root実行・出力収集・実行中期限の強制は将来の adapter の責務です。実 Docker・provider・ホストファイル／shell fallback はなく、workspace tools と CLI接続は未完了です。
 
 ## ロードマップ
 

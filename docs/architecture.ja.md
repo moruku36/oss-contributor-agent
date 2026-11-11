@@ -8,11 +8,7 @@
 重複排除、スコアリング、サンドボックス、人間のゲート、予算、
 アンチスパム制限 — を加えています。
 
-2026-11-11 の開発差分では、Phase 2 の注入可能な sandbox backend 契約と
-単一試行の lifecycle だけを実装しました。mock-only 回帰3ケースはローカル1起動で合格、
-実 Docker 隔離は未検証です。実 backend、workspace、CoderLoop は未完成で、
-本番は Phase 1 の collect-only のままです。以下の全体フローは有効化済みの
-機能一覧ではありません。
+2026-11-11: sandbox lifecycle はPR #2でマージ済みです。今回の注入専用 CoderLoop は基準成功・assertion失敗による再現・上限付き修正・宣言した関連スイート全体・後片付けを確認します。新規mock-only 3ケースはローカル1起動で合格しました。実backend／provider、workspace adapter、自動探索・テスト作成、CLI接続、実Docker隔離は未完成・未検証です。本番はPhase 1のcollect-onlyのままです。全体完成率は未査定で、以下は有効化済み機能一覧ではありません。
 
 ## 1. 概要
 

@@ -8,6 +8,8 @@ operational machinery that makes automation safe to run against other
 people's projects: scheduling, state, dedupe, scoring, sandboxing,
 human gates, budgets, and anti-spam limits.
 
+2026-11-11 implementation boundary: sandbox lifecycle is merged in PR #2. The new injection-only CoderLoop checks a green baseline, reproduced assertion failure, bounded patch proposals, the reproduction and entire declared relevant suite, then confirmed cleanup. Its three new mock-only cases passed once locally. Real backend/provider, workspace adapters, exploration/test authoring, CLI integration and Docker isolation remain unfinished or unverified. Production stays Phase 1 collect-only; overall initial-version completion is unestimated. The flow below is design, not an activation list.
+
 ## 1. Overview
 
 The system runs a daily batch that:
