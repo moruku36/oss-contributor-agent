@@ -23,7 +23,7 @@ Outputs are complete and bounded or refused, never silently truncated. Context c
 - Every affected file must be editable. The whole proposal is validated against a temporary snapshot; any rejection leaves the current snapshot unchanged.
 - Complete sorted base-to-current diffs use whole-file replacement hunks. Output overflow refuses export instead of truncating it.
 
-Attempt-ID checks prevent accidental cross-attempt calls; they do **not** establish actual binding to an isolated sandbox. Python deadline checks and finite data limits do not preempt a blocked trusted assessor. Real runner authentication, filesystem/link enforcement, source/dependency acquisition, Docker isolation and integration with production CLI remain separate unfinished work.
+Attempt-ID checks prevent accidental cross-attempt calls; they do **not** establish actual binding to an isolated sandbox. Python deadline checks and finite data limits do not preempt a blocked trusted assessor. The separate [directory-FD import/staging adapter](filesystem-staging.md) now implements local no-follow/single-link checks and verified new-directory output under trusted roots. Real runner authentication, runtime filesystem isolation, source/dependency acquisition, Docker isolation and production CLI integration remain unfinished.
 
 ## 日本語
 

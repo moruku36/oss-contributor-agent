@@ -1,10 +1,10 @@
-# Phase 2 実装計画（2026-11-11、snapshot workspace 増分）
+# Phase 2 実装計画（2026-11-11、directory-FD filesystem増分）
 
 ## 現在地と順序
 
 - Phase 1 は稼働中。ユーザー systemd タイマーで毎日06:30 JSTに収集する。
 - coordinatorの読取専用timer／service／digest／ledger確認で11/8〜11/11の日次収集成功、新規・判定・pending は毎回0。観察チェックポイントは完了。歴史的候補363件には最終観測11/1の OpenClaw 319件が含まれ、修正対象選定や上流作業許可を意味しない。
-- sandbox lifecycle／CoderLoopはオーナーマージ済みPR #2・#3で実装。今回はメモリ上のsnapshot workspaceと原子的な厳格patchを実装し、新規3ケースがローカル1起動で合格。実制御クラスと合成runnerの接続も検証。実filesystem／Git helper・runner・provider・Docker隔離・本番CLI接続は未完了・未検証。
+- sandbox lifecycle／CoderLoop／snapshotはPR #2〜#4でオーナーマージ済み。今回は明示directory FDによる実ファイル取込みと、修正後snapshotの新規領域への検証付き書出しを実装。実一時filesystemの新規3ケースがローカル1起動で合格。実runner／provider／Docker隔離・取得工程・書出し世代の制御・本番CLI接続は未完了・未検証。
 - `scripts/run_agent.py` のcollect-onlyゲートを維持する。開発完了と本番対象のfull化は別の判断で、設定を自動変更しない。
 - PR下書きはローカル成果物を意味する。GitHub上のdraft PR作成も提出に当たり、本人判断の前に実行しない。
 
@@ -30,7 +30,7 @@
 
 受入条件: 正常・異常・起動途中失敗で終了処理が確認でき、タイムアウトと後片付け失敗が成功に化けない。権限や資源上限を緩める再試行をしない。
 
-今回の実装範囲（mock契約はローカル検証済み、実Docker受入は未実施）:
+先行sandbox実装（mock契約は検証済み、実Docker受入は未実施）:
 
 - `SandboxBackend` は create/start/execute/remove の4操作。create 前に選んだ ID を全操作で使い、不確実な作成でも remove 対象を失わない。実装の自動選択・subprocess・ホストシェル fallback はない。
 - image は非空・NUL不可、CPU・時間は正の有限数、メモリ・コマンド数・入力/出力バイト上限は正の整数として検証。bool・数値文字列等は拒否。policy は immutable、network=none・非root・read-only root 固定。host mount・認証情報・環境継承は禁止する backend 契約。
@@ -43,7 +43,13 @@
 
 対象: `src/agent/snapshot_workspace.py` と `src/agent/tools.py` の明示snapshot wrapper。
 
-今回の実装範囲はメモリ上の通常テキストのみです。実Path／Git APIは未実装を維持し、ホストfile操作に置換しません。[snapshot仕様（日英）](snapshot-workspace.md)を参照。
+先行snapshotはメモリ上の通常テキストを扱います。今回、別module `src/agent/filesystem_staging.py` に信頼する明示directory-FD capabilityからの取込み／新規書出しを実装しました。任意Path／Git APIは未実装のままです。[snapshot仕様](snapshot-workspace.md)／[filesystem仕様（日英）](filesystem-staging.md)を参照。
+
+- `ManifestFile`のpath／role／選択範囲をsnapshot規則でfilesystemアクセス前に検証。指定fileだけをnofollow・FD相対で開き、通常・単一link・UTF-8・実byte数・statの安定性を確認します。未指定fileの探索はしません。
+- `FilesystemStaging.import_workspace`が実SnapshotWorkspaceを返し、従来の保護role／厳格patchを適用。新しい `export_files` は現在の全fileと元roleを総量上限内で返し、通常readの出力上限を理由にstageが切り詰められないようにします。
+- `stage`は同じattempt／importしたobjectだけを受け付け、別のprivate/disjoint親FDの下に新規領域を1回だけ作成。元ソースは不変です。private mode・排他作成・完全write・readback／hash照合が済んだfileの受領を返します。
+- 書出しはfilesystem上の複数file atomic commitではありません。dispatch前に単一使用を記録し、途中／不明結果はstage名・検証済prefix・試行中pathを保持した `IncompleteStageReceipt` と明示例外で停止。再送・偽rollback・再帰削除はしません。残存stageの照合／cleanupはsandbox/backend／operator責務。
+- caller所有FDは閉じず、複製・内部FDを解放。未stageで中止する場合もcontext manager／closeを使います。占有・安定・disjointなrootが前提で、FD同一性だけでは祖先関係・敵対的mount・実コンテナ束縛を証明しません。最大30秒の事後期限検査はblocked IOの強制停止を保証せず、crash durabilityも対象外。
 
 - `TextFile`のpath/text/roleを検証し、通常テキスト以外のentry・symlink/hardlink・metadata・曖昧なパス・file/dir衝突を拒否。roleがtest／runnerのファイルと、明示編集許可のないsourceは不変です。roleの正しい分類は呼出し側の責務。
 - 同じパス名前空間でread／リテラル検索／選択context／patch／完全diffを扱い、UTF-8・file数・総量・個別file・path・hunk・出力上限を検証。検索でregexを実行せず、超過は切捨てでなく拒否。
@@ -54,7 +60,7 @@
 - read/write/search/patchの各操作で同じ境界を使う。パッチの各ファイルパスも検証する。
 - Git準備・diffの取得は隔離側へ委譲し、任意のホストディレクトリを作業先にできないようにする。
 
-今回の受入: 合成snapshotで通常操作・不正path／entry／保護対象／サイズ境界・複数fileの原子的拒否を検証。実filesystemのlink/path対策と実一時workspace受入は将来の別工程です。
+今回の受入: 実一時fileで取込み→実snapshot修正→新規書出し→byte／hash／modeを照合。link／特殊file／UTF-8／サイズ／観測した読取中変更／attempt違いを拒否し、途中実write失敗では受領保持・再送拒否・FD解放を検証しました。実runner／Docker隔離の受入ではありません。
 
 ### C. TDD Coder Loopの状態機械
 
@@ -94,42 +100,46 @@ CONTRIBUTING・ライセンス・CLA/DCO・既存PR重複・AI開示を確認し
 
 ## 4. 今回の検証と実行予算
 
-過去試行は各9/10ケース実行（各3固有ケース・local／PR／mainの3起動）で封印:
-lifecycleはPR #2、main SHA `58cb0068f23494b1f0bb300008419e7d76be1293`、
-main run42928600276（Python3.12、3passed0.52s）。
-CoderLoopはPR #3、main SHA `471283297befd6169f2e031a95639432b9a8d564`、
-main run42931545581（Python3.12.16、3passed0.31s）。
-旧ケースは今回のCIで再実行しません。branch／session変更だけで予算をリセットしません。
+先行試行はいずれも各3固有ケース・local／PR／main各1起動、計9/10実行で封印しました。今回再実行しません。
 
-今回の別機能増分（snapshot）の実績: **新規3ケース・ローカル1起動で全件合格**
-（Python3.13.18、0.03秒）、現在3/10。今回のPR CIは未確認。
-PR1回3件と将来のmain1回3件を足す予定なら計9/10です。
-新規 `tests/test_snapshot_workspace.py` の3ケースは:
+| 試行 | マージ済みPR | main CI | mainの実績 |
+| --- | --- | --- | --- |
+| lifecycle | #2 | 42928600276 | Python3.12、3passed0.52s |
+| CoderLoop | #3 | 42931545581 | Python3.12.16、3passed0.31s |
+| snapshot | #4 | 42933736802 | Python3.12.16、3passed0.05s |
 
-1. 複数fileのedit／read／検索／diff、厳格patchと原子的拒否、空file／改行端の境界。
-2. パス・保護role・特殊entry・UTF-8／各サイズ／出力上限、拒否後の状態保持。
-3. 実CoderLoop／Sandbox／snapshotと同じ状態を読む合成runnerで修正・全関連suite・cleanupを接続。真正なfixture受領と無関係／再掲の結果を区別。
+PR #4のmerge SHAは `eb600fe40684d4374f099f5c46b3c2e35d191301`。
+branch／command／session変更だけで予算をリセットしません。
 
-全てメモリデータとsynthetic adapterで、実ソース実行・shell・Docker・runtime APIは使いません。
-実モデルの修正能力や実隔離の証拠ではありません。旧test sourceは保持し、歴史的full suite・
-smoke・parameterize・matrix・feature push重複CI・scheduled test・自動retryはありません。
+今回の別機能増分（filesystem import/staging）は **ローカル1起動・新規3ケース実行・全件合格**
+（Python3.13.18、0.04秒）。現在local3/10、今回のPR CIは未確認です。
+PR1回3件と将来main1回3件を足す予定なら計9/10です。
+`tests/test_filesystem_staging.py`の新規3ケース:
 
-明示選択（ローカルで1回だけ実行済み、PR／main CIも同じ3件）:
+1. 実取込み・snapshot修正・完全書出し／hash／private mode・元ソース不変・caller FD維持。
+2. path／link／特殊file／UTF-8／size／保護／attempt／identityの拒否と観測した読取中変更の停止。
+3. 実short write後の部分失敗で未完了受領と検証済prefixを保持し、再送なし・内部FD解放・元ソース不変。
+
+実tmp fileを使いますが、ソースやコマンドの実行、runner／provider呼出し、Docker接続はありません。
+旧test sourceを残し、旧suite・smoke・parameterize・matrix・scheduled test・自動retry・featurepush重複CIはありません。
+
+ローカルとPR／main CIの明示選択:
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTEST_ADDOPTS='' python -m pytest -q -o addopts= \
-  tests/test_snapshot_workspace.py::test_multifile_edit_read_search_diff_and_atomic_rejection \
-  tests/test_snapshot_workspace.py::test_path_protected_unsupported_entry_and_size_boundaries_preserve_snapshot \
-  tests/test_snapshot_workspace.py::test_real_coder_loop_and_sandbox_share_snapshot_with_trusted_synthetic_runner
+  tests/test_filesystem_staging.py::test_import_patch_and_verified_stage_preserve_source_and_caller_fds \
+  tests/test_filesystem_staging.py::test_rejections_do_not_create_stages_or_write_outside_roots \
+  tests/test_filesystem_staging.py::test_partial_failure_receipt_is_terminal_and_releases_descriptors
 ```
 
-通算最大10ケースはlocal・CI・再実行の全てに適用します。Sleep Labのfull-suite例外は適用しません。
-CIはPython3.12の1job、PRとmainのみ。累計予算のworkflow自動強制はないため、
-次の実行で超える場合は停止して予算判断を求めます。既存の収集cron/dry-runは変更しません。
+通算最大10ケースはlocal／CI／再実行の全てに適用し、Sleep Lab例外は適用しません。
+CIはPython3.12の1job、PRとmainのみ。workflowは累積予算を強制しないため、
+次の実行で超過する場合は停止し予算判断を求めます。既存収集cron／dry-runは不変です。
 
-開発workerはCodex CLI `gpt-6.1-sol`／`xhigh`、実行metadataと正常完了イベント、
-最終メッセージを確認しました。workerはテスト未実行で、限定メタデータ分類でもtest dispatch該当0。
-coordinatorがdraftをレビューし、空fileへの重複挿入拒否の確認を追加して上記3件を検証しました。
-使用量・費用は未計測です。実filesystem・runner／provider adapter・Docker隔離・ソース依存取得・
-自動探索／再現テスト作成・本番接続は未完了。初期版全体の完成率は未査定。
-本番config／timer／認証変更、上流Issue試行、Docker導入／socket利用、runtime推論は0回です。
+開発workerの実行metadataはCodex CLI `gpt-6.1-sol`／`xhigh`、正常完了受領／
+最終メッセージは未取得でした。該当processなしを限定情報で確認し、再送・代替workerなし。
+coordinatorが保存draftをレビューし、読取中の観測可能な変更の拒否を追加して上記3件を検証しました。
+workerの限定metadata分類でtest dispatch該当0、開発使用量／費用は未確認。
+実runner／実行backend／provider、source取得、stage世代切替、本番接続、実Docker受入は未完了。
+本番config／collect-only／timer／認証変更、上流Issue作業、Docker導入／socket利用、
+runtime推論／効果計測は0回。初期版全体の完成率は未査定です。

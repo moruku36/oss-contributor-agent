@@ -19,15 +19,16 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e '.[dev]'
       # One invocation, exactly three cases. No matrix, retries or legacy suite.
-      # Snapshot trial: local3 verified; PR3 + eventual main3 -> planned 9/10 total.
-      # Prior lifecycle and CoderLoop trials are each sealed at 9/10.
+      # Filesystem staging trial: planned local3 + PR3 + future main3 = 9/10.
+      # Coordinator verified local3 once; PR3 and future main3 remain budgeted.
+      # Prior lifecycle, CoderLoop and snapshot trials are each sealed at 9/10.
       # The 10-case cap includes all local/CI/re-runs; no automatic budget reset.
-      - name: In-memory snapshot workspace (three synthetic cases)
+      - name: Filesystem import and staging (three cases)
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
           PYTEST_ADDOPTS: ""
         run: |
           python -m pytest -q -o addopts= \
-            tests/test_snapshot_workspace.py::test_multifile_edit_read_search_diff_and_atomic_rejection \
-            tests/test_snapshot_workspace.py::test_path_protected_unsupported_entry_and_size_boundaries_preserve_snapshot \
-            tests/test_snapshot_workspace.py::test_real_coder_loop_and_sandbox_share_snapshot_with_trusted_synthetic_runner
+            tests/test_filesystem_staging.py::test_import_patch_and_verified_stage_preserve_source_and_caller_fds \
+            tests/test_filesystem_staging.py::test_rejections_do_not_create_stages_or_write_outside_roots \
+            tests/test_filesystem_staging.py::test_partial_failure_receipt_is_terminal_and_releases_descriptors
