@@ -58,6 +58,18 @@ def test_success_snapshot_and_truthful_disclosure():
     report = _report(attempt)
     original = report.snapshot_json
     data = report.evidence
+    # Domain tuples must become JSON arrays before the first validation, not
+    # merely during the later canonical JSON encoding.
+    assert type(PLAN.relevant_suite) is tuple
+    assert data["plan"] == {
+        "reproduction": {"command": "reproduce", "timeout_seconds": 2},
+        "relevant_suite": [
+            {"command": "suite-a", "timeout_seconds": 3},
+            {"command": "suite-b", "timeout_seconds": 3},
+        ],
+    }
+    assert type(data["plan"]["relevant_suite"]) is list
+    assert ReviewReport(original).to_markdown() == report.to_markdown()
     assert data["diff_sha256"] == hashlib.sha256(attempt.diff.encode()).hexdigest()
     assert data["diff_bytes"] == len(attempt.diff.encode())
     assert data["attempt"]["checks"] == json.loads(original)["attempt"]["checks"]

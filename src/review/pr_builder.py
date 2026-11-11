@@ -10,7 +10,7 @@ import re
 
 from src.agent.core import (
     AttemptResult, CheckEvidence, LoopState, ModelReceipt, TestAssessment,
-    TestOutcome, TestPlan,
+    TestCommand, TestOutcome, TestPlan,
 )
 
 AI_DISCLOSURE_LINE = (
@@ -262,6 +262,13 @@ def build_review_report(
 ) -> ReviewReport:
     if type(attempt) is not AttemptResult or type(plan) is not TestPlan or type(issue) is not dict:
         raise ValueError("expected actual attempt, issue and explicit test plan")
+    # The domain plan uses a tuple; the detached JSON schema uses a list.
+    # Bound and check the source before copying, without relaxing snapshot validation.
+    if (type(plan.reproduction) is not TestCommand
+            or type(plan.relevant_suite) is not tuple
+            or not 1 <= len(plan.relevant_suite) <= 8
+            or not all(type(c) is TestCommand for c in plan.relevant_suite)):
+        raise ValueError("invalid test plan types or size")
     # Bound collections before recursive dataclass copying.
     for values, limit in ((attempt.checks, 256), (attempt.notes, 128),
                           (attempt.states, 512), (attempt.model_receipts, 128)):
@@ -278,7 +285,11 @@ def build_review_report(
         "schema_version": 1, "repo": issue.get("repo"),
         "issue_number": issue.get("number"), "issue_title": issue.get("title"),
         "base_commit": base_commit, "execution_kind": execution_kind,
-        "plan": asdict(plan), "attempt": asdict(attempt),
+        "plan": {
+            "reproduction": asdict(plan.reproduction),
+            "relevant_suite": [asdict(c) for c in plan.relevant_suite],
+        },
+        "attempt": asdict(attempt),
         "diff_sha256": hashlib.sha256(attempt.diff.encode("utf-8")).hexdigest(),
         "diff_bytes": len(attempt.diff.encode("utf-8")),
     }
