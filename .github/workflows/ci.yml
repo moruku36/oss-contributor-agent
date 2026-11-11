@@ -19,16 +19,16 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e '.[dev]'
       # One invocation, exactly three cases. No matrix, retries or legacy suite.
-      # Staged attempt trial: local3 + PR3 + future owner-approved main3 = 9/10.
+      # Engine lifecycle wire trial: local3 + PR3 + future owner-approved main3 = 9/10.
       # No full-suite, duplicate push/PR jobs or automatic re-runs.
-      # Prior lifecycle, CoderLoop, snapshot and staging trials remain sealed.
+      # Prior lifecycle, CoderLoop, snapshot, staging and staged-attempt trials remain sealed.
       # The 10-case cap includes all local/CI/re-runs; no automatic budget reset.
-      - name: Staged attempt adapter (three cases)
+      - name: Engine lifecycle wire adapter (three cases)
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
           PYTEST_ADDOPTS: ""
         run: |
           python -m pytest -q -o addopts= \
-            tests/test_staged_attempt.py::test_real_loop_with_staged_adapter_end_to_end \
-            tests/test_staged_attempt.py::test_lifecycle_order_ids_single_use_and_partial_create_cleanup \
-            tests/test_staged_attempt.py::test_runner_failure_and_cleanup_failure_are_not_confirmed_or_retried
+            tests/test_docker_engine_lifecycle.py::test_security_payload_and_confirmed_lifecycle \
+            tests/test_docker_engine_lifecycle.py::test_unknown_create_cleanup_and_foreign_ownership_are_single_use \
+            tests/test_docker_engine_lifecycle.py::test_policy_drift_unconfirmed_delete_and_input_rejections

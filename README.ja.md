@@ -4,12 +4,14 @@
 
 ## 現在の担当と運用状況（2026-11-11）
 
+最新増分: PR #7までマージ済み。隔離lifecycle・修正ループ・snapshot・filesystem staging・runner bridge・attempt adapterの合成接続を検証しました。次のDocker Engine lifecycle wire adapterは、明示注入transportに対するcreate/start/removeの要求・所有確認・隔離設定照合・削除確認を扱います。実transport、テスト実行、実Docker隔離受入、idle寿命強制、本番接続は未完了です。[仕様と制限](docs/docker-engine-lifecycle.md)。初期版全体の完成率は **暫定35%**（収集→隔離修正→検証→人間レビュー用レポート→承認後draft PR）。実隔離・提出工程を未検証のまま加算しません。新規3ケースは作成済みですが、pytestは承認紐付けエラーで実行前に拒否され、未検証です。以下の古い増分別の実行記録は歴史的記録です。
+
 - **担当引き継ぎ：** Muse（フワッチ）から Kurotchi（クロッチ）へ、moruku の依頼で管理・開発を引き継ぎました。PR 提出の最終判断は引き続き moruku が行います。
 - **現在地：** Phase 1（Issue 収集・トリアージ）が midorun（OCI）で稼働中。systemd のユーザータイマーで毎朝 **06:30 JST** に実行しています。GitHub Actions の収集ワークフローは dry-run のままで、実運用には使っていません。
 - **対象：** Mattermost、Grafana、Prometheus、Brave、OpenClaw の 5 件。すべて `collect-only` で、自動修正・PR 作成は有効にしていません。
 - **観察チェックポイント完了（coordinatorの読取専用確認）：** 11/8〜11/11 の日次収集は成功し、毎回 **新規0・判定0・pending 0**。保存済みの **363 件**には **最終観測11/1の OpenClaw 319 件**を含みます。過去の保存値であり、修正対象の選定や上流 Issue への作業許可ではありません。
 - **開発状況：** PR #2〜#4はオーナーマージ済みで、lifecycle／CoderLoop／snapshot試行は各9実行（local3＋PR3＋main3）で封印済み。今回は明示directory FDから実ファイルを取り込み、修正後snapshotを新規private領域へ1回だけ検証付きで書き出す機能を実装しました。元ソースは上書きせず、新規3ケースは実一時filesystemでローカル1起動・全件合格（Python 3.13.18、0.04秒）。今回のPR CIは未確認です。
-- **次の作業：** 実test-runnerの受領／実行adapter、書出し世代の接続、ソース・依存取得、実隔離受入。privateで交わらない作業領域のFDは呼出し側が明示する前提で、実コンテナ束縛の証拠ではありません。実provider／Docker backend／本番CLIは未接続。初期版完成率は **未査定**。[filesystem仕様](docs/filesystem-staging.md)／[snapshot仕様](docs/snapshot-workspace.md)。
+- **次の作業：** 実test-runnerの受領／実行adapter、書出し世代の接続、ソース・依存取得、実隔離受入。privateで交わらない作業領域のFDは呼出し側が明示する前提で、実コンテナ束縛の証拠ではありません。実provider／Docker backend／本番CLIは未接続。初期版完成率は **暫定35%**（最新増分と未検証範囲は上記参照）。[filesystem仕様](docs/filesystem-staging.md)／[snapshot仕様](docs/snapshot-workspace.md)。
 
 レポート名の日付は UTC のため、11/8 06:30 JST の成果物は `digest-2026-11-07.md` です。日付が前日でも欠損ではありません。
 
