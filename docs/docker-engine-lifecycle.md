@@ -54,7 +54,17 @@ owner-merged main3 = 9/10 executions, one invocation at each stage. Prior trials
 remain sealed and are not repeated. Current actual executions: **0**. The first
 local pytest request was denied before dispatch because approval could not safely
 bind the interpreter/runtime command; no alternate interpreter or CI execution
-was used. Tests remain unverified pending the supported approval path.
+was used. The owner then approved the exact test command, but the unchanged
+native approval submission was again denied before dispatch. Owner approval is
+received; supported native command binding remains unresolved.
+
+At the owner's request this increment is being published as a **draft for review**,
+not as verified work. The publication commit uses GitHub's standard `[skip ci]`
+instruction to prevent the PR event from executing the blocked tests. CI workflow
+and test definitions are retained unchanged; skipped/pending checks are not passes.
+Do not mark ready or merge this unverified draft. Resolve the native binding issue
+and verify the exact three cases before a separately reviewed CI-enabled update.
+Actual test executions remain **0**; no Docker daemon has been contacted.
 
 ## Initial-version progress
 
