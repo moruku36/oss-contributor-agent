@@ -8,7 +8,7 @@
 重複排除、スコアリング、サンドボックス、人間のゲート、予算、
 アンチスパム制限 — を加えています。
 
-2026-11-11: sandbox lifecycle はPR #2でマージ済みです。今回の注入専用 CoderLoop は基準成功・assertion失敗による再現・上限付き修正・宣言した関連スイート全体・後片付けを確認します。新規mock-only 3ケースはローカル1起動で合格しました。実backend／provider、workspace adapter、自動探索・テスト作成、CLI接続、実Docker隔離は未完成・未検証です。本番はPhase 1のcollect-onlyのままです。全体完成率は未査定で、以下は有効化済み機能一覧ではありません。
+2026-11-11: sandbox lifecycle／CoderLoopはPR #2・#3でオーナーマージ済みです。今回は上限付きメモリ型[snapshot workspace](snapshot-workspace.md)を実装し、パス名前空間・source/test/runner role・厳格patchの一括反映・完全diffを追加しました。新規3ケースがローカル1起動で合格し、実制御クラスを通じたsnapshot変更が合成runnerの再現結果を変えることも確認しました。実filesystem／runner／provider、Docker隔離、自動探索・テスト作成、本番CLI接続は未完了・未検証です。本番はcollect-only、全体完成率は未査定です。以下は有効化済み機能一覧ではありません。
 
 ## 1. 概要
 

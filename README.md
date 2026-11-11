@@ -8,8 +8,8 @@ English | [日本語](README.ja.md)
 - **Running today:** Phase 1 (issue collection and triage) runs on midorun (OCI) via a systemd user timer at **06:30 JST daily**. The GitHub Actions collection workflow remains dry-run only and is not the production scheduler.
 - **Scope:** Mattermost, Grafana, Prometheus, Brave, and OpenClaw — all five targets are `collect-only`. Automated patch attempts and PR creation are not enabled.
 - **Observation checkpoint complete (read-only coordinator verification):** November 8–11 daily collections succeeded, with **0 new issues, 0 triage decisions and 0 pending decisions each run**. The **363 historical candidates** include **319 OpenClaw items last seen November 1**; this is stored history, not fresh task selection or authority to act on an upstream issue.
-- **Development:** Owner-merged PR #2 supplies the injectable sandbox lifecycle; its local, PR and main CI checks passed (3 cases each, 9 executions total). This increment adds an injection-only CoderLoop: green baseline → demonstrated assertion failure → bounded model patch → reproduction and entire declared relevant suite → confirmed cleanup. The three new mock-only cases passed once locally (Python 3.13.18, 0.04 s); this increment's PR CI is not yet verified.
-- **Next:** Implement and verify sandbox-bound workspace/runner adapters, then synthetic integration. No real provider, Docker backend, host-file adapter or CLI activation is bundled. Source/dependency acquisition remains separate from network-disabled execution. Overall initial-version completion is **not yet estimated**.
+- **Development:** Owner-merged PRs #2 and #3 supply the injectable Sandbox lifecycle and CoderLoop. Each prior feature trial passed local/PR/main CI (9 executions each, sealed). This increment implements a bounded in-memory snapshot workspace, protected file roles, strict atomic text patches and deterministic complete diff export. The three new cases passed once locally (Python 3.13.18, 0.03 s), including real CoderLoop/Sandbox orchestration with a synthetic runner that reads the changed snapshot; PR CI for this increment is not yet verified.
+- **Next:** Real filesystem/runner adapters, prepared source/dependency acquisition and actual isolation acceptance remain unfinished. No provider, Docker/host-file adapter or production CLI activation is supplied. The snapshot is memory-only, not working filesystem isolation. Overall initial-version completion is **not yet estimated**. See [snapshot contract / 日本語](docs/snapshot-workspace.md).
 
 Digest filenames use UTC dates: the November 8 run at 06:30 JST produced `digest-2026-11-07.md`. The previous-day filename does not indicate a missing run.
 
@@ -124,7 +124,7 @@ pip install -e .            # or: pip install pyyaml
 pip install pytest          # only when preparing an authorized test run
 ```
 
-Local verification passed the three new CoderLoop cases once. The previous lifecycle trial is sealed at 9/10 executions and is not re-run. The distinct CoderLoop trial currently uses 3/10; one PR run and one later main run would bring it to 9/10. PR CI and pushes to `main` select
+Local verification passed the three new snapshot workspace cases once. Prior lifecycle and CoderLoop trials are each sealed at 9/10 executions and are not re-run. This distinct snapshot feature trial currently uses 3/10; one PR run and one eventual main run would bring it to 9/10. PR CI and pushes to `main` select
 exactly the three mock-only cases once; feature pushes do not also run CI.
 Historical test sources remain, but are not run automatically. The owner budget
 is **10 total case executions**, including local runs, CI and retries; it does
@@ -183,7 +183,7 @@ LLM triage stage for borderline issues (borderline issues stay
 `pending_llm` when no provider is configured), and the daily digest.
 The five targets are enabled for collection only: patch attempts
 and PR creation are impossible, both by configuration and by
-construction. The sandbox lifecycle contract is merged; the injection-only CoderLoop is implemented and locally mock-tested. Unconfigured execution refuses explicitly. The caller supplies protected reproduction/full relevant-suite commands and trusted model/workspace adapters; automatic exploration and test authoring remain unfinished. Unknown usage/application, infrastructure failures and unconfirmed cleanup cannot produce success or automatic retry. CPU/memory, offline non-root execution, bounded capture and in-flight deadlines remain adapter obligations, not verified isolation. No Docker, real provider, host-file or shell fallback is supplied; workspace tools and CLI integration remain unfinished.
+construction. The sandbox lifecycle contract is merged; the injection-only CoderLoop is implemented and locally mock-tested. Unconfigured execution refuses explicitly. The caller supplies protected reproduction/full relevant-suite commands and trusted model/workspace adapters; automatic exploration and test authoring remain unfinished. Unknown usage/application, infrastructure failures and unconfirmed cleanup cannot produce success or automatic retry. CPU/memory, offline non-root execution, bounded capture and in-flight deadlines remain adapter obligations, not verified isolation. The bounded memory-only SnapshotWorkspace now implements validated read/literal-search/context/atomic patch/diff operations with explicit editable source and immutable test/runner roles. A synthetic integration verifies source changes drive reproduction outcomes through the real control classes. No Docker, real provider, host-file or shell fallback is supplied; filesystem/Git helpers, actual runner adapters and production CLI integration remain unfinished.
 
 ## Roadmap
 

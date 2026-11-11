@@ -19,15 +19,15 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e '.[dev]'
       # One invocation, exactly three cases. No matrix, retries or legacy suite.
-      # New CoderLoop trial: local3 + PR3 + main3 = planned 9/10, not yet run.
-      # Prior sandbox lifecycle trial is immutable at 9/10; never re-run it here.
+      # Snapshot trial: local3 verified; PR3 + eventual main3 -> planned 9/10 total.
+      # Prior lifecycle and CoderLoop trials are each sealed at 9/10.
       # The 10-case cap includes all local/CI/re-runs; no automatic budget reset.
-      - name: Injected CoderLoop contract (three mock-only cases)
+      - name: In-memory snapshot workspace (three synthetic cases)
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
           PYTEST_ADDOPTS: ""
         run: |
           python -m pytest -q -o addopts= \
-            tests/test_coder_loop_state_machine.py::test_complete_lifecycle_verifies_entire_suite_and_cleanup \
-            tests/test_coder_loop_state_machine.py::test_reproduction_and_environment_reject_without_model_patch \
-            tests/test_coder_loop_state_machine.py::test_bounded_retry_feedback_and_unknown_or_excess_usage_stop
+            tests/test_snapshot_workspace.py::test_multifile_edit_read_search_diff_and_atomic_rejection \
+            tests/test_snapshot_workspace.py::test_path_protected_unsupported_entry_and_size_boundaries_preserve_snapshot \
+            tests/test_snapshot_workspace.py::test_real_coder_loop_and_sandbox_share_snapshot_with_trusted_synthetic_runner

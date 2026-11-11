@@ -1,10 +1,10 @@
-# Phase 2 実装計画（2026-11-11、注入専用 CoderLoop 増分）
+# Phase 2 実装計画（2026-11-11、snapshot workspace 増分）
 
 ## 現在地と順序
 
 - Phase 1 は稼働中。ユーザー systemd タイマーで毎日06:30 JSTに収集する。
 - coordinatorの読取専用timer／service／digest／ledger確認で11/8〜11/11の日次収集成功、新規・判定・pending は毎回0。観察チェックポイントは完了。歴史的候補363件には最終観測11/1の OpenClaw 319件が含まれ、修正対象選定や上流作業許可を意味しない。
-- sandbox lifecycle はオーナーマージ済みPR #2で実装。今回の `src/agent/core.py` は注入専用の状態機械を実装し、新規mock-only 3ケースがローカル1起動で合格。実backend・provider・Docker隔離は未検証、`git_workspace.py`・tools・CLI接続は未実装。
+- sandbox lifecycle／CoderLoopはオーナーマージ済みPR #2・#3で実装。今回はメモリ上のsnapshot workspaceと原子的な厳格patchを実装し、新規3ケースがローカル1起動で合格。実制御クラスと合成runnerの接続も検証。実filesystem／Git helper・runner・provider・Docker隔離・本番CLI接続は未完了・未検証。
 - `scripts/run_agent.py` のcollect-onlyゲートを維持する。開発完了と本番対象のfull化は別の判断で、設定を自動変更しない。
 - PR下書きはローカル成果物を意味する。GitHub上のdraft PR作成も提出に当たり、本人判断の前に実行しない。
 
@@ -41,13 +41,20 @@
 
 ### B. ファイル操作とワークスペース境界
 
-対象: `src/agent/tools.py`。
+対象: `src/agent/snapshot_workspace.py` と `src/agent/tools.py` の明示snapshot wrapper。
+
+今回の実装範囲はメモリ上の通常テキストのみです。実Path／Git APIは未実装を維持し、ホストfile操作に置換しません。[snapshot仕様（日英）](snapshot-workspace.md)を参照。
+
+- `TextFile`のpath/text/roleを検証し、通常テキスト以外のentry・symlink/hardlink・metadata・曖昧なパス・file/dir衝突を拒否。roleがtest／runnerのファイルと、明示編集許可のないsourceは不変です。roleの正しい分類は呼出し側の責務。
+- 同じパス名前空間でread／リテラル検索／選択context／patch／完全diffを扱い、UTF-8・file数・総量・個別file・path・hunk・出力上限を検証。検索でregexを実行せず、超過は切捨てでなく拒否。
+- patchは既存fileの厳格なunified diff部分集合。変更前本文、行位置、行数、曖昧なcontext、重複path、編集許可を全file分検証し、候補snapshotを一括commit。拒否時は変更を残しません。追加／削除／rename／mode変更等は対象外。
+- attempt IDを照合し、runner判定は明示した信頼するassessorへ委譲。同じIDの文字列だけでは実sandbox束縛を証明せず、終了コードや文章だけでassertion失敗を推測しません。
 
 - 絶対パス、`..`、シンボリックリンクによる境界逸脱を拒否する。
 - read/write/search/patchの各操作で同じ境界を使う。パッチの各ファイルパスも検証する。
 - Git準備・diffの取得は隔離側へ委譲し、任意のホストディレクトリを作業先にできないようにする。
 
-受入条件: 正常な一時ワークスペースで操作でき、境界外読み書き・リンク・パッチ経由の逸脱を拒否するテストが通る。
+今回の受入: 合成snapshotで通常操作・不正path／entry／保護対象／サイズ境界・複数fileの原子的拒否を検証。実filesystemのlink/path対策と実一時workspace受入は将来の別工程です。
 
 ### C. TDD Coder Loopの状態機械
 
@@ -73,7 +80,7 @@
 
 ### D. 合成リポジトリでの統合検証
 
-- 公開OSSの候補ではなく、小さなローカルfixtureを使う。
+- 公開OSSの候補ではなく、小さな合成fixtureを使う。今回、実CoderLoop／Sandbox／SnapshotWorkspaceと合成model／runnerを接続し、同じsnapshotへのsource変更が再現をassertion失敗から成功へ変え、関連スイート2コマンドの再検証と合成cleanupまで通ることを確認。fixtureソースのeval／execやprocess起動はしない。
 - ドキュメント・typoの狭い演習から始め、再現・修正・全体テスト・diff出力・後片付けを通す。
 - credential非搭載、ネットワーク制約、資源上限、タイムアウトを実際の隔離環境で検証する。
 - CLIに組み込む前後でcollect-onlyゲートを回帰確認する。
@@ -87,48 +94,42 @@ CONTRIBUTING・ライセンス・CLA/DCO・既存PR重複・AI開示を確認し
 
 ## 4. 今回の検証と実行予算
 
-前回のsandbox lifecycle試行はPR #2マージ済みで封印しました。ローカル3件
-（Python3.13.18、0.03秒）+ PR CI3件（Python3.12、0.27秒）+
-main CI3件（Python3.12、0.52秒）、計9ケース実行／3起動、固有3ケースです。
-main確認commitは `58cb0068f23494b1f0bb300008419e7d76be1293`、
-runは42928600276。旧ケースを今回のCIで再実行しません。
+過去試行は各9/10ケース実行（各3固有ケース・local／PR／mainの3起動）で封印:
+lifecycleはPR #2、main SHA `58cb0068f23494b1f0bb300008419e7d76be1293`、
+main run42928600276（Python3.12、3passed0.52s）。
+CoderLoopはPR #3、main SHA `471283297befd6169f2e031a95639432b9a8d564`、
+main run42931545581（Python3.12.16、3passed0.31s）。
+旧ケースは今回のCIで再実行しません。branch／session変更だけで予算をリセットしません。
 
-今回の別機能増分（CoderLoop）の実績: **ローカル起動1回・新規3ケース実行・全件合格**
-（Python3.13.18、0.04秒）、現在3/10。今回のPR CIは未確認。
-PR1回3件と将来のmain1回3件を足す予定なら計9/10になります。
-branch／session／commandが変わるだけでは同じ試行の予算はリセットしません。
-旧ソースは残し、歴史的full suite・CLI smoke・matrix・feature push重複CIは実行しません。
+今回の別機能増分（snapshot）の実績: **新規3ケース・ローカル1起動で全件合格**
+（Python3.13.18、0.03秒）、現在3/10。今回のPR CIは未確認。
+PR1回3件と将来のmain1回3件を足す予定なら計9/10です。
+新規 `tests/test_snapshot_workspace.py` の3ケースは:
 
-新規 `tests/test_coder_loop_state_machine.py` の3つのpytest case:
+1. 複数fileのedit／read／検索／diff、厳格patchと原子的拒否、空file／改行端の境界。
+2. パス・保護role・特殊entry・UTF-8／各サイズ／出力上限、拒否後の状態保持。
+3. 実CoderLoop／Sandbox／snapshotと同じ状態を読む合成runnerで修正・全関連suite・cleanupを接続。真正なfixture受領と無関係／再掲の結果を区別。
 
-1. 正常な全検証とcleanup順序、cleanup失敗では成功しない。
-2. 再現不能・環境異常・基準不合格でmodel修正を呼ばない、未設定拒否。
-3. 失敗ログを使う上限付き再試行、未知使用量・既知超過・呼出し上限で停止。
+全てメモリデータとsynthetic adapterで、実ソース実行・shell・Docker・runtime APIは使いません。
+実モデルの修正能力や実隔離の証拠ではありません。旧test sourceは保持し、歴史的full suite・
+smoke・parameterize・matrix・feature push重複CI・scheduled test・自動retryはありません。
 
-全てsynthetic/mockのみ。Sandboxの既存契約を使いますが、実コマンド・Docker・
-shell・外部runtime APIはdispatchしません。別suiteのwrapperやparameterizeではありません。
-
-ローカルとCIの明示選択（ローカルで1回だけ実行済み）:
+明示選択（ローカルで1回だけ実行済み、PR／main CIも同じ3件）:
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTEST_ADDOPTS='' python -m pytest -q -o addopts= \
-  tests/test_coder_loop_state_machine.py::test_complete_lifecycle_verifies_entire_suite_and_cleanup \
-  tests/test_coder_loop_state_machine.py::test_reproduction_and_environment_reject_without_model_patch \
-  tests/test_coder_loop_state_machine.py::test_bounded_retry_feedback_and_unknown_or_excess_usage_stop
+  tests/test_snapshot_workspace.py::test_multifile_edit_read_search_diff_and_atomic_rejection \
+  tests/test_snapshot_workspace.py::test_path_protected_unsupported_entry_and_size_boundaries_preserve_snapshot \
+  tests/test_snapshot_workspace.py::test_real_coder_loop_and_sandbox_share_snapshot_with_trusted_synthetic_runner
 ```
 
-通算最大10ケースはlocal・CI・再実行の全てに適用し、Sleep Labのfull-suite例外は適用しません。
-CIはPython3.12の1job、PRとmainのみ各3件。累計予算のworkflow自動強制はないため、
-次の実行で超える場合は停止して予算判断を求めます。既存の収集cron/dry-runは維持します。
+通算最大10ケースはlocal・CI・再実行の全てに適用します。Sleep Labのfull-suite例外は適用しません。
+CIはPython3.12の1job、PRとmainのみ。累計予算のworkflow自動強制はないため、
+次の実行で超える場合は停止して予算判断を求めます。既存の収集cron/dry-runは変更しません。
 
-開発workerの実行metadataはCodex CLI `gpt-6.1-sol`／`xhigh` でした。
-正常完了イベント・最終メッセージファイルは未取得で、照合時processなし。
-再送・モデル代替はせず、coordinatorが保存draftをレビュー・検証し文書を補完しました。
-開発使用量・費用は未確認。限定metadata分類ではテストdispatchの該当なし、
-生の履歴本文は公開しません。実モデルによる修正性能の証拠ではありません。
-
-ソース／依存の取得は取得先制御と成果物検証を設計する別工程。その後のsandbox内
-テストはnetwork=noneを維持します。CI依存準備のnetwork利用は実隔離の証拠ではありません。
-Docker導入／socket／本番config・timer・認証変更、runtime推論、上流Issue試行は0回。
-workspace／runner adapter、実backend、合成repo統合、探索とテスト作成は未完了。
-初期版全体の完成率は未査定。本番activation・対象full化・上流PR提出の人間ゲートを維持します。
+開発workerはCodex CLI `gpt-6.1-sol`／`xhigh`、実行metadataと正常完了イベント、
+最終メッセージを確認しました。workerはテスト未実行で、限定メタデータ分類でもtest dispatch該当0。
+coordinatorがdraftをレビューし、空fileへの重複挿入拒否の確認を追加して上記3件を検証しました。
+使用量・費用は未計測です。実filesystem・runner／provider adapter・Docker隔離・ソース依存取得・
+自動探索／再現テスト作成・本番接続は未完了。初期版全体の完成率は未査定。
+本番config／timer／認証変更、上流Issue試行、Docker導入／socket利用、runtime推論は0回です。
