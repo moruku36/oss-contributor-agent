@@ -2,13 +2,14 @@
 
 [English](README.md) | 日本語
 
-## 現在の担当と運用状況（2026-11-08）
+## 現在の担当と運用状況（2026-11-11）
 
 - **担当引き継ぎ：** Muse（フワッチ）から Kurotchi（クロッチ）へ、moruku の依頼で管理・開発を引き継ぎました。PR 提出の最終判断は引き続き moruku が行います。
 - **現在地：** Phase 1（Issue 収集・トリアージ）が midorun（OCI）で稼働中。systemd のユーザータイマーで毎朝 **06:30 JST** に実行しています。GitHub Actions の収集ワークフローは dry-run のままで、実運用には使っていません。
 - **対象：** Mattermost、Grafana、Prometheus、Brave、OpenClaw の 5 件。すべて `collect-only` で、自動修正・PR 作成は有効にしていません。
-- **引き継ぎ時の確認：** 11/8 朝の収集は正常終了、対象 5 件とも成功。保存済み候補プールは **363 件**、LLM 判定待ちは **0 件**です。363 件すべてが新スコアリングで判定されたわけではありません。
-- **次の作業：** 11/8 実行分を基準に数日間、新規 Issue・候補の質・判定待ち・対象別エラーを観察します。その結果を踏まえて Phase 2（隔離実行環境と TDD Coder Loop）の実装・検証へ進みます。Phase 2 は計画段階で、動作実装は未完了です。
+- **観察チェックポイント完了（coordinatorの読取専用確認）：** 11/8〜11/11 の日次収集は成功し、毎回 **新規0・判定0・pending 0**。保存済みの **363 件**には **最終観測11/1の OpenClaw 319 件**を含みます。過去の保存値であり、修正対象の選定や上流 Issue への作業許可ではありません。
+- **開発状況：** Phase 2 の初回増分として、明示注入する backend 契約と、失敗時に閉じる単一試行の sandbox lifecycle を実装しました。実 backend の同梱・有効化はなく、mock-only 回帰3ケースは **ローカル1起動・3件合格**（Python 3.13.18、0.03秒）。PR CIは未実施です。実 Docker 隔離は未検証、workspace と CoderLoop は未完了です。
+- **次の作業：** 今回のPR CIを確認し、注入可能な CoderLoop／workspace の実装へ進みます。ソース・依存取得は将来の別段階で、ネットワーク無効のテスト実行と分離します。初期版全体の完成率は **未査定**です。mock契約の合格を実Docker隔離の完成とは扱いません。
 
 レポート名の日付は UTC のため、11/8 06:30 JST の成果物は `digest-2026-11-07.md` です。日付が前日でも欠損ではありません。
 
@@ -119,9 +120,14 @@ tests/              pytest スイート
 
 ```bash
 pip install -e .            # または pip install pyyaml
-pip install pytest          # テストを実行する場合
-python3 -m pytest tests/ -q
+pip install pytest          # 許可された検証の準備時のみ
 ```
+
+ローカルでは選択した3ケースを1回実行して合格しました。PR と main push の CI だけで mock-only 3ケースを
+1回選択し、feature push の重複実行を避けます。旧テストソースは残しますが
+自動では実行しません。オーナー予算はローカル・CI・再実行の合計 **10ケース**
+までで、起動単位でリセットしません。選択と実行記録は
+[Phase 2 計画 §4](docs/phase2-plan.ja.md#4-今回の検証と実行予算)を参照してください。
 
 収集パスを 1 回実行します（有効な対象すべて）：
 
@@ -175,8 +181,11 @@ collect-only の間、`scripts/run_agent.py` の単一 Issue 実行は
 トリアージスコアラー、境界帯への LLM トリアージ（プロバイダ差し
 替え可能、未設定時は pending 保持）、デイリーダイジェスト、CI。
 対象 5 件は収集のみ有効で、パッチ試行と PR 作成は構造的にも設定
-的にも不可能です。サンドボックスと Coder Loop は Phase 2 以降で
-実装します。
+的にも不可能です。Phase 2 の sandbox lifecycle 契約を今回実装しましたが、
+回帰3ケースはローカル1起動で合格しました。backend 未設定は明示拒否し、CPU・メモリ・
+offline／非root実行・出力・期限の強制は将来の adapter の責務です。
+Docker・subprocess・ホストシェルへの fallback はありません。
+CoderLoop と workspace helpers は引き続き scaffold です。
 
 ## ロードマップ
 

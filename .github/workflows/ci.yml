@@ -2,11 +2,13 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,9 +18,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e '.[dev]'
-      - name: Run tests
-        run: python -m pytest tests/ -q
-      - name: Smoke-test the CLI stubs (dry-run)
+      # One invocation, exactly three cases. No matrix, retries or legacy suite.
+      # The owner trial cap is 10 case executions across local/CI/re-runs.
+      - name: Sandbox lifecycle contract (three mock-only cases)
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+          PYTEST_ADDOPTS: ""
         run: |
-          python scripts/run_agent.py --repo example/example --issue 1 --dry-run
-          python scripts/watch_repos.py --dry-run
+          python -m pytest -q -o addopts= \
+            tests/test_sandbox_lifecycle.py::test_normal_lifecycle_and_resource_policy \
+            tests/test_sandbox_lifecycle.py::test_failure_cleanup_is_terminal_and_preserves_uncertainty \
+            tests/test_sandbox_lifecycle.py::test_validation_and_no_dispatch_boundaries
