@@ -18,7 +18,7 @@ diffs use whole-file replacement hunks, keeping generation linear and bounded.
 Attempt IDs prevent accidental cross-attempt use; they do not establish Sandbox
 binding. A trusted injected assessor must recognize the exact result object and
 attempt, using authoritative runner evidence. No exit/log heuristics are supplied.
-This single-caller object has no filesystem adapter or production CLI activation.
+This single-caller object performs no filesystem access or production CLI activation.
 """
 
 from __future__ import annotations
@@ -153,6 +153,7 @@ class SnapshotWorkspace:
         self._validate_contents(source)
         self._base = source.copy()
         self._current = source
+        self._roles = roles
         self._editable = frozenset(self._selection(editable_paths))
         self._context_paths = self._selection(context_paths)
         for path in self._editable:
@@ -219,6 +220,23 @@ class SnapshotWorkspace:
         deadline, cap = self._operation(attempt_id, timeout_seconds, max_bytes, self._limits.max_output_bytes)
         path = self._selection((path,))[0]
         return self._output((self._current[path],), cap, deadline)
+
+    def export_files(
+        self, attempt_id: str, *, timeout_seconds: float, max_bytes: int,
+    ) -> tuple[TextFile, ...]:
+        """Complete current text and original roles for a bounded staging adapter."""
+        deadline, cap = self._operation(attempt_id, timeout_seconds, max_bytes, self._limits.max_total_bytes)
+        files: list[TextFile] = []
+        total = 0
+        for path in sorted(self._current):
+            _time_left(deadline)
+            text = self._current[path]
+            total += _utf8(text, self._limits.max_file_bytes)
+            if total > cap:
+                raise SnapshotError("complete export exceeds bound")
+            files.append(TextFile(path, text, self._roles[path]))
+        _time_left(deadline)
+        return tuple(files)
 
     def search_code(
         self, attempt_id: str, literal: str, *, timeout_seconds: float, max_bytes: int,

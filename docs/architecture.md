@@ -8,7 +8,7 @@ operational machinery that makes automation safe to run against other
 people's projects: scheduling, state, dedupe, scoring, sandboxing,
 human gates, budgets, and anti-spam limits.
 
-2026-11-11 implementation boundary: sandbox lifecycle and CoderLoop are owner-merged in PRs #2/#3. This increment adds a bounded memory-only [snapshot workspace](snapshot-workspace.md): validated file namespace, explicit source/test/runner roles, atomic strict text patches and complete diff export. Three new cases passed once locally, including a synthetic runner whose result changes when the actual snapshot changes through the real CoderLoop/Sandbox control classes. No filesystem, real runner/provider, Docker isolation, automatic exploration/test authoring or production CLI integration is proved. Production stays Phase 1 collect-only; overall completion is unestimated. The flow below is design, not an activation list.
+2026-11-11 implementation boundary: PRs #2–#4 are owner-merged. The new [directory-FD adapter](filesystem-staging.md) imports explicitly declared regular text files and stages current snapshot contents into a fresh private directory, verifying actual bytes/hashes without changing prepared source. Three new local real-filesystem cases passed once. Partial/uncertain output retains a named failure receipt; it is never replayed or claimed rolled back. Caller-controlled stable/disjoint roots and trusted runner assessment remain assumptions, not isolation proof. Real execution/provider adapters, staged-generation integration, source acquisition and Docker acceptance are unfinished; production remains collect-only and overall completion unestimated.
 
 ## 1. Overview
 
