@@ -4,7 +4,7 @@
 
 ## 現在の担当と運用状況（2026-11-11）
 
-最新増分: PR #7までマージ済み。隔離lifecycle・修正ループ・snapshot・filesystem staging・runner bridge・attempt adapterの合成接続を検証しました。次のDocker Engine lifecycle wire adapterは、明示注入transportに対するcreate/start/removeの要求・所有確認・隔離設定照合・削除確認を扱います。実transport、テスト実行、実Docker隔離受入、idle寿命強制、本番接続は未完了です。[仕様と制限](docs/docker-engine-lifecycle.md)。初期版全体の完成率は **暫定35%**（収集→隔離修正→検証→人間レビュー用レポート→承認後draft PR）。実隔離・提出工程を未検証のまま加算しません。新規3ケースは作成済みですが、pytestは承認紐付けエラーで実行前に拒否され、未検証です。以下の古い増分別の実行記録は歴史的記録です。
+最新増分: PR #10までオーナーマージ済み。Engine lifecycleとローカルレビューレポートは、オーナーマージ後のmain CIで各3件の合成ケースに合格しました。PR #10のシリアライズ修正はCI `42964537214`で3件合格（0.17秒）。実Docker隔離やローカル承認紐付けの修復を意味しません。次の[コミット規約検証](docs/commit-compliance.md)ではConventional Commits形式と必要な最終DCO署名欄を検証します。新規3ケースは作成済み・**未実行**です。コンプライアンス全体、実transport・隔離・ソース取得・上流提出は未完了です。初期版完成率は **暫定35%**（収集→隔離修正→検証→人間レビュー用レポート→承認後draft PR）。以下の古い増分別実行記録は歴史的記録です。
 
 - **担当引き継ぎ：** Muse（フワッチ）から Kurotchi（クロッチ）へ、moruku の依頼で管理・開発を引き継ぎました。PR 提出の最終判断は引き続き moruku が行います。
 - **現在地：** Phase 1（Issue 収集・トリアージ）が midorun（OCI）で稼働中。systemd のユーザータイマーで毎朝 **06:30 JST** に実行しています。GitHub Actions の収集ワークフローは dry-run のままで、実運用には使っていません。
