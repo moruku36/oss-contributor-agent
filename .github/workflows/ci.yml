@@ -19,16 +19,16 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e '.[dev]'
       # One invocation, exactly three cases. No matrix, retries or legacy suite.
-      # Filesystem staging trial: planned local3 + PR3 + future main3 = 9/10.
+      # Runner bridge trial: local3 + PR3 + future main3 = 9/10.
       # Coordinator verified local3 once; PR3 and future main3 remain budgeted.
-      # Prior lifecycle, CoderLoop and snapshot trials are each sealed at 9/10.
+      # Prior lifecycle, CoderLoop, snapshot and staging trials remain sealed.
       # The 10-case cap includes all local/CI/re-runs; no automatic budget reset.
-      - name: Filesystem import and staging (three cases)
+      - name: Staged runner bridge (three cases)
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
           PYTEST_ADDOPTS: ""
         run: |
           python -m pytest -q -o addopts= \
-            tests/test_filesystem_staging.py::test_import_patch_and_verified_stage_preserve_source_and_caller_fds \
-            tests/test_filesystem_staging.py::test_rejections_do_not_create_stages_or_write_outside_roots \
-            tests/test_filesystem_staging.py::test_partial_failure_receipt_is_terminal_and_releases_descriptors
+            tests/test_staged_runner_bridge.py::test_each_command_hands_off_a_fresh_generation_of_the_current_snapshot \
+            tests/test_staged_runner_bridge.py::test_stale_replayed_or_mismatched_evidence_is_never_assessed \
+            tests/test_staged_runner_bridge.py::test_partial_or_unknown_dispatch_is_terminal_and_owns_only_its_descriptor
