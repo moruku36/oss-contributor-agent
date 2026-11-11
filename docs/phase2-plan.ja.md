@@ -1,10 +1,10 @@
-# Phase 2 実装計画（2026-11-11、sandbox lifecycle 初回増分）
+# Phase 2 実装計画（2026-11-11、注入専用 CoderLoop 増分）
 
 ## 現在地と順序
 
 - Phase 1 は稼働中。ユーザー systemd タイマーで毎日06:30 JSTに収集する。
 - coordinatorの読取専用timer／service／digest／ledger確認で11/8〜11/11の日次収集成功、新規・判定・pending は毎回0。観察チェックポイントは完了。歴史的候補363件には最終観測11/1の OpenClaw 319件が含まれ、修正対象選定や上流作業許可を意味しない。
-- 今回は `docker_manager.py` の注入可能な backend 契約と単一試行の lifecycle だけを実装。回帰3ケースはローカル1起動で合格。実 backend と実 Docker 隔離は未検証、`git_workspace.py`・`src/agent/core.py`・tools は scaffold のまま。
+- sandbox lifecycle はオーナーマージ済みPR #2で実装。今回の `src/agent/core.py` は注入専用の状態機械を実装し、新規mock-only 3ケースがローカル1起動で合格。実backend・provider・Docker隔離は未検証、`git_workspace.py`・tools・CLI接続は未実装。
 - `scripts/run_agent.py` のcollect-onlyゲートを維持する。開発完了と本番対象のfull化は別の判断で、設定を自動変更しない。
 - PR下書きはローカル成果物を意味する。GitHub上のdraft PR作成も提出に当たり、本人判断の前に実行しない。
 
@@ -51,7 +51,17 @@
 
 ### C. TDD Coder Loopの状態機械
 
-対象: `src/agent/core.py` と `tests/test_patch_loop.py`。
+対象: `src/agent/core.py` と新規 `tests/test_coder_loop_state_machine.py`。旧 `tests/test_patch_loop.py` は残すが今回実行しない。
+
+今回の実装契約:
+
+- `PatchModel`／`Workspace` protocol と明示 `TestPlan` を注入し、未設定は実行前に拒否する。実provider・ホストファイルadapter・設定連携はない。
+- callerが準備したソースと保護する再現／関連スイート全体の明示コマンドだけを使う。自動探索・再現テスト作成は未実装。基準スイートが成功し、再現が実際のassertion失敗と確認できるまでmodelを呼ばない。
+- `Workspace.assess` は同一attempt／CommandResultに束縛したrunner証拠を解釈する信頼境界。単なる非zero終了・collection/import異常・全skip・曖昧な結果を再現失敗としない。将来の実adapterで独立検証が必要。
+- patchはworkspaceだけで適用し、パス・リンク・変更範囲とテスト保護をadapterで検証。適用がliteral Trueで確認できない場合や例外は停止し、再送・偽rollbackをしない。
+- 各修正後に再現と宣言した関連スイート全コマンドを再確認する。失敗時は上限内の失敗ログを次の許可済み試行に渡す。差分取得とsandbox teardownが確認できて初めて成功する。
+- 試行・model呼出し・累積token・実時間・文字列サイズの上限を設定し、残量をadapterへ渡す。使用量不明は `tokens_used=None` と既知prefixを区別し再試行しない。超過既知値も記録して適用前に止める。
+- Python事後検査は実行中の強制停止や隔離を保証しない。model/workspace/backendのin-flight制限と真正な使用量／runner受領はadapter責務。cleanup猶予は別の有限時間。
 
 - モデル呼出し・ファイル操作・テスト実行を注入可能にし、最初は決定的な偽アダプターだけで制御を検証する。
 - 既存テストの基準状態を確認し、再現テストが失敗することを確認してから最小修正に進む。
@@ -77,50 +87,48 @@ CONTRIBUTING・ライセンス・CLA/DCO・既存PR重複・AI開示を確認し
 
 ## 4. 今回の検証と実行予算
 
-2026-11-11 の今回の実績: **ローカルテスト起動1回・ケース実行3件、全件合格**
-（Python 3.13.18、0.03秒）。CLI smoke・歴史的full suiteは未実行、PR CIは未実施です。
-専用ローカル環境に宣言済みdev依存を導入しました。Docker／実backend／上流Issue
-試行は0回。本番設定／timer／認証変更、Docker導入／socket利用、runtime推論や
-有料計測はしていません。レビュー済み差分のfeature pushと開発PR作成までを
-配送範囲とし、merge・本番有効化・監視対象へのPR投稿は別判断です。
-初期版全体の完成率は未査定です。mock契約の合格から実隔離の完成を推定しません。
+前回のsandbox lifecycle試行はPR #2マージ済みで封印しました。ローカル3件
+（Python3.13.18、0.03秒）+ PR CI3件（Python3.12、0.27秒）+
+main CI3件（Python3.12、0.52秒）、計9ケース実行／3起動、固有3ケースです。
+main確認commitは `58cb0068f23494b1f0bb300008419e7d76be1293`、
+runは42928600276。旧ケースを今回のCIで再実行しません。
 
-開発workerは明示承認後のCodex CLIで、ローカルmetadataが `gpt-6.1-sol`／`xhigh`
-を示します。外側toolは600秒でtimeoutし、正常完了受領・最終ファイルなし、
-照合時に該当processなし。再送・代替workerなし。coordinatorが保存draftをレビュー・
-検証しました。開発使用量・費用は不明で、runtime計測の結果ではありません。
+今回の別機能増分（CoderLoop）の実績: **ローカル起動1回・新規3ケース実行・全件合格**
+（Python3.13.18、0.04秒）、現在3/10。今回のPR CIは未確認。
+PR1回3件と将来のmain1回3件を足す予定なら計9/10になります。
+branch／session／commandが変わるだけでは同じ試行の予算はリセットしません。
+旧ソースは残し、歴史的full suite・CLI smoke・matrix・feature push重複CIは実行しません。
 
-回帰ソースは `tests/test_sandbox_lifecycle.py` にちょうど3つの pytest case:
+新規 `tests/test_coder_loop_state_machine.py` の3つのpytest case:
 
-1. 正常 lifecycle・資源/安全policy・残り時間の委譲・単一利用。
-2. 不確実な create・部分 start・timeout・実行例外の cleanup と teardown 失敗保持。
-3. 入力検証/no-dispatch・コマンド/UTF-8出力上限・遅い成功/idle期限切れの拒否。
+1. 正常な全検証とcleanup順序、cleanup失敗では成功しない。
+2. 再現不能・環境異常・基準不合格でmodel修正を呼ばない、未設定拒否。
+3. 失敗ログを使う上限付き再試行、未知使用量・既知超過・呼出し上限で停止。
 
-全て mock のみで、失敗分岐は明示した合成試行。parameterize・歴史的 suite の
-wrapper・実 Docker・shell・外部API は使わない。旧テストソースは全て残す。
-選択した3ケースのみローカルで合格し、collect-only ゲートはソースレビューのみです。
+全てsynthetic/mockのみ。Sandboxの既存契約を使いますが、実コマンド・Docker・
+shell・外部runtime APIはdispatchしません。別suiteのwrapperやparameterizeではありません。
 
-ローカルとCIで使う明示選択（ローカルでは同じ3件を1回実行済み）:
+ローカルとCIの明示選択（ローカルで1回だけ実行済み）:
 
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTEST_ADDOPTS='' python -m pytest -q -o addopts= \
-  tests/test_sandbox_lifecycle.py::test_normal_lifecycle_and_resource_policy \
-  tests/test_sandbox_lifecycle.py::test_failure_cleanup_is_terminal_and_preserves_uncertainty \
-  tests/test_sandbox_lifecycle.py::test_validation_and_no_dispatch_boundaries
+  tests/test_coder_loop_state_machine.py::test_complete_lifecycle_verifies_entire_suite_and_cleanup \
+  tests/test_coder_loop_state_machine.py::test_reproduction_and_environment_reject_without_model_patch \
+  tests/test_coder_loop_state_machine.py::test_bounded_retry_feedback_and_unknown_or_excess_usage_stop
 ```
 
-オーナー予算は同じ開発試行のローカル・CI・再実行を通算 **最大10ケース**。
-Sleep Lab の full-suite 例外は適用しない。CI は Python 3.12 の1 job、
-PR と main push のみで上記3ケースを1回選択し、matrix・自動retry・旧 full-suite・
-追加 smoke はない。feature push で重複起動させず、daily-triage からも旧 suite を
-外す。既存の収集 cron と dry-run は維持する。
-ローカル3件にPR 1回の3件を足すと計6件、main 1回も含めると計9件です。再起動・追加更新も同じ予算を消費します。
-workflow は起動間の累計予算を強制しないため、次の3件で10件を超える場合は
-検証を止めて予算判断を求める。起動回数とケース数を分けて記録する。
+通算最大10ケースはlocal・CI・再実行の全てに適用し、Sleep Labのfull-suite例外は適用しません。
+CIはPython3.12の1job、PRとmainのみ各3件。累計予算のworkflow自動強制はないため、
+次の実行で超える場合は停止して予算判断を求めます。既存の収集cron/dry-runは維持します。
 
-ソース取得・依存取得は取得先制御と成果物の検証を設計する将来の別工程。
-その後の sandbox 内テストは network=none とし、依存取得の都合で緩めない。
-CI の checkout/依存準備と mock テスト実行も別段階であり、CI runner 自体の
-ネットワーク隔離の証拠にはならない。実 Docker の隔離・資源上限・強制停止は
-未検証。次の注入可能な CoderLoop、workspace 境界、合成repo統合検証は未完了で、
-本番 activation、対象 full 化、PR 提出の人間ゲートは維持する。
+開発workerの実行metadataはCodex CLI `gpt-6.1-sol`／`xhigh` でした。
+正常完了イベント・最終メッセージファイルは未取得で、照合時processなし。
+再送・モデル代替はせず、coordinatorが保存draftをレビュー・検証し文書を補完しました。
+開発使用量・費用は未確認。限定metadata分類ではテストdispatchの該当なし、
+生の履歴本文は公開しません。実モデルによる修正性能の証拠ではありません。
+
+ソース／依存の取得は取得先制御と成果物検証を設計する別工程。その後のsandbox内
+テストはnetwork=noneを維持します。CI依存準備のnetwork利用は実隔離の証拠ではありません。
+Docker導入／socket／本番config・timer・認証変更、runtime推論、上流Issue試行は0回。
+workspace／runner adapter、実backend、合成repo統合、探索とテスト作成は未完了。
+初期版全体の完成率は未査定。本番activation・対象full化・上流PR提出の人間ゲートを維持します。
