@@ -18,17 +18,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e '.[dev]'
-      # One invocation, exactly three cases. No matrix, retries or legacy suite.
-      # Engine lifecycle wire trial: local3 + PR3 + future owner-approved main3 = 9/10.
-      # No full-suite, duplicate push/PR jobs or automatic re-runs.
-      # Prior lifecycle, CoderLoop, snapshot, staging and staged-attempt trials remain sealed.
-      # The 10-case cap includes all local/CI/re-runs; no automatic budget reset.
-      - name: Engine lifecycle wire adapter (three cases)
+      # New report trial only: exactly 3 cases per invocation.
+      # Budget: planned local3 + PR3 + future owner-approved main3 = 9/10.
+      # Local execution is currently blocked before dispatch (actual 0).
+      # Do not publish to CI as a workaround for that unresolved denial.
+      # Older lifecycle/staging trials remain sealed. No matrix or retries.
+      - name: Local review report (three synthetic cases)
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
           PYTEST_ADDOPTS: ""
         run: |
           python -m pytest -q -o addopts= \
-            tests/test_docker_engine_lifecycle.py::test_security_payload_and_confirmed_lifecycle \
-            tests/test_docker_engine_lifecycle.py::test_unknown_create_cleanup_and_foreign_ownership_are_single_use \
-            tests/test_docker_engine_lifecycle.py::test_policy_drift_unconfirmed_delete_and_input_rejections
+            tests/test_review_report.py::test_success_snapshot_and_truthful_disclosure \
+            tests/test_review_report.py::test_failed_unknown_and_invalid_evidence \
+            tests/test_review_report.py::test_hostile_markdown_is_literal_and_no_side_effects

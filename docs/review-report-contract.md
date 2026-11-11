@@ -1,6 +1,6 @@
 # Local review report — proposed next increment
 
-Status: design only, 2026-11-11. No implementation or test result is claimed.
+Status: locally implemented, 2026-11-11; untested. The three-case local test invocation was denied before dispatch by native approval binding. No test success or publication is claimed.
 
 ## Verified starting point
 
@@ -111,8 +111,9 @@ claim that approval or real isolation has occurred.
 
 ## Three-case acceptance plan
 
-No test execution has occurred for this increment. Plan one invocation with
-exactly three new non-parametrized pytest cases in `tests/test_review_report.py`:
+No test execution has occurred for this increment. Implemented exactly three
+new non-parametrized pytest cases in `tests/test_review_report.py`. The intended
+single invocation was denied before dispatch; actual cases 0/10:
 
 1. Successful synthetic evidence: correct baseline/reproduction/final suite;
    snapshot detached from input; full diff/hash, command order, model receipts
@@ -134,10 +135,22 @@ this design document.
 
 ## Remaining work
 
-Muse Wonder assistance is awaiting native approval after an execution-before-
-dispatch rejection; the exact request is retained outside the repository.
-Implement only after that assistance step is resolved, review the draft,
-perform the smallest authorized checks, and deliver the feature branch/PR.
+Owner approved the exact Muse Wonder request; unchanged native ask:always
+completed successfully with provider meta, model muse-wonder-1.0, attempts[].
+Coordinator reviewed the design and implemented a frozen canonical-JSON report,
+strict evidence validation, literal Markdown rendering, and three synthetic
+acceptance cases. Unlike a tuple-based proposal, the immutable canonical string
+is the single source of truth; parsed dictionaries are detached on every read.
+Resource unknowns and incomplete receipts remain visible on failed attempts;
+success requires complete reconciled receipts. CoderLoop always records complete
+verification rounds, including all suite commands after assertion failures.
+
+The new test command was denied before dispatch: SYSTEM_RUN_DENIED, approval
+cannot safely bind this interpreter/runtime command. Tests executed: 0.
+Whitespace check passed. CI is prepared for exactly the new three cases, but
+there is no push/PR because triggering it would reroute the blocked test action.
+Resolve supported native approval binding, then verify the three cases and
+deliver the feature branch/PR. Do not rerun prior lifecycle tests.
 Actual runtime/transport/source acquisition, independent isolation proof,
 compliance checks, approval-bound submission, and real end-to-end acceptance
 remain separate unfinished milestones. Initial-version completion stays
@@ -149,4 +162,6 @@ provisional **35%**; this design alone does not increase it.
 成功・失敗・使用量不明を分け、差分・コマンド・モデル受領を保存します。
 模擬実行を実隔離の検証済みとは記載しません。生成は人間承認や
 上流PR提出許可を意味せず、提出機能・collect-only設定は変更しません。
-現時点は設計文書のみで、実装・新規テスト実行は未着手です。
+ローカル実装と新規テスト3件は保存済みです。正式承認後のMuse Wonder応答は
+受領済みですが、新規テストは実行基盤の承認紐付けエラーで実行前に拒否され、
+実行0件・未検証です。CIへ振り替えず、push・PRは保留しています。
