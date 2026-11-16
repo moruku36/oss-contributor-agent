@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from src.review.draft_submission import (
         DraftOnlyTransport, DraftRequest, HumanApprovalAuthority, SubmissionOutcome,
     )
+    from src.review.submission_journal import SQLiteSubmissionJournal
 
 from src.agent.core import (
     AttemptResult, CheckEvidence, LoopState, ModelReceipt, TestAssessment,
@@ -356,13 +357,15 @@ def submit_draft_pr(
     report: ReviewReport, body: str, *, request: DraftRequest | None = None,
     authority: HumanApprovalAuthority | None = None,
     transport: DraftOnlyTransport | None = None,
+    journal: SQLiteSubmissionJournal | None = None, operation_id: str | None = None,
 ) -> SubmissionOutcome:
     """Fail closed by default; explicit trusted injection is the only upgrade.
 
     A digest or caller assertion cannot authorize dispatch. Durable once-only
-    consumption across calls belongs to the injected authority.
+    consumption can additionally be guarded by an opt-in local SQLite journal.
     """
-    if request is None and authority is None and transport is None:
+    if (request is None and authority is None and transport is None
+            and journal is None and operation_id is None):
         raise NotImplementedError("explicit approval authority and draft-only transport required")
     from src.review.draft_submission import DraftRequest, DraftSubmission
 
@@ -373,4 +376,5 @@ def submit_draft_pr(
     if (type(report) is not ReviewReport or report.snapshot_json != data["report_json"]
             or type(body) is not str or body != data["body"]):
         raise ValueError("report/body do not match prepared request")
-    return DraftSubmission(detached, authority=authority, transport=transport).run()
+    return DraftSubmission(detached, authority=authority, transport=transport,
+                           journal=journal, operation_id=operation_id).run()

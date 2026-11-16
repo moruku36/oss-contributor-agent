@@ -12,7 +12,10 @@ from hashlib import sha256
 import json
 import re
 from threading import Lock
-from typing import Protocol
+from typing import Protocol, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.review.submission_journal import SQLiteSubmissionJournal
 
 from src.agent.core import TestCommand, TestPlan
 from src.review.pr_builder import (
@@ -215,7 +218,7 @@ class SubmissionOutcome:
 
 
 class DraftSubmission:
-    """Single-use locally; durable deduplication belongs to the authority.
+    """Single-use locally, with an optional trusted durable consumption journal.
 
     Each boundary receives a separate frozen value from one captured string,
     never a shared mutable dictionary or request. A lock also rejects reentry.
@@ -224,6 +227,7 @@ class DraftSubmission:
     def __init__(
         self, request: DraftRequest, *, authority: HumanApprovalAuthority,
         transport: DraftOnlyTransport,
+        journal: SQLiteSubmissionJournal | None = None, operation_id: str | None = None,
     ) -> None:
         if type(request) is not DraftRequest:
             raise ValueError("exact DraftRequest required")
@@ -231,7 +235,14 @@ class DraftSubmission:
         if (not callable(getattr(authority, "authorize_and_consume", None))
                 or not callable(getattr(transport, "submit_draft", None))):
             raise ValueError("explicit trusted authority and draft-only transport required")
-        self._authority, self._transport = authority, transport
+        if journal is not None or operation_id is not None:
+            from src.review.submission_journal import SQLiteSubmissionJournal, _operation_id
+            if type(journal) is not SQLiteSubmissionJournal:
+                raise ValueError("journal and explicit stable operation_id are required together")
+            _operation_id(operation_id)
+        self._authorize = authority.authorize_and_consume
+        self._submit = transport.submit_draft
+        self._journal, self._operation_id = journal, operation_id
         self._lock, self._used = Lock(), False
         self._outcome: SubmissionOutcome | None = None
 
@@ -244,40 +255,60 @@ class DraftSubmission:
             if self._used:
                 raise ValueError("submission is single-use, including errors; reconcile, do not replay")
             self._used = True
-        digest = sha256(self._snapshot.encode("utf-8")).hexdigest()
+        # Capture every binding before either injected boundary runs.
+        snapshot, journal, identity = self._snapshot, self._journal, self._operation_id
+        authorize, submit = self._authorize, self._submit
+        digest = sha256(snapshot.encode("utf-8")).hexdigest()
+        stage = "authority_intent"
+        self._outcome = SubmissionOutcome(SubmissionStatus.UNKNOWN, digest, False,
+                                          "authority_outcome_unknown")
+        if journal is not None:
+            journal._claim(identity, snapshot, self._outcome)
 
         def result(
             status: SubmissionStatus, dispatched: bool, reason: str, number: int | None = None,
         ) -> SubmissionOutcome:
-            self._outcome = SubmissionOutcome(status, digest, dispatched, reason, number)
+            candidate = SubmissionOutcome(status, digest, dispatched, reason, number)
+            if journal is not None:
+                # Keep the prior UNKNOWN if writing the terminal result fails.
+                journal._advance(identity, snapshot, stage, "finished", candidate)
+            self._outcome = candidate
             return self._outcome
 
         try:
-            _request_data(self._snapshot)
+            _request_data(snapshot)
         except ValueError:
             return result(SubmissionStatus.REJECTED, False, "invalid_request")
-        result(SubmissionStatus.UNKNOWN, False, "authority_outcome_unknown")
         try:
-            decision = self._authority.authorize_and_consume(DraftRequest(self._snapshot))
+            decision = authorize(DraftRequest(snapshot))
         except Exception:
-            return self._outcome
+            return result(SubmissionStatus.UNKNOWN, False, "authority_outcome_unknown")
         if decision is ApprovalDecision.DENIED:
             return result(SubmissionStatus.REJECTED, False, "approval_denied")
         if decision is not ApprovalDecision.AUTHORIZED:
-            return self._outcome
-        result(SubmissionStatus.UNKNOWN, True, "dispatch_outcome_unknown")
+            return result(SubmissionStatus.UNKNOWN, False, "authority_outcome_unknown")
+        intent = SubmissionOutcome(SubmissionStatus.UNKNOWN, digest, True, "dispatch_outcome_unknown")
+        if journal is not None:
+            journal._advance(identity, snapshot, stage, "transport_intent", intent)
+        stage = "transport_intent"
+        self._outcome = intent
         try:
-            reply = self._transport.submit_draft(DraftRequest(self._snapshot))
+            reply = submit(DraftRequest(snapshot))
             if (type(reply) is not DraftTransportReply or type(reply.status) is not SubmissionStatus
                     or type(reply.request_sha256) is not str or reply.request_sha256 != digest
                     or reply.draft is not True):
-                return self._outcome
-            if reply.status is SubmissionStatus.SUBMITTED:
+                reply = None
+            if reply is None:
+                pass
+            elif reply.status is SubmissionStatus.SUBMITTED:
                 if type(reply.pull_request_number) is not int or not 1 <= reply.pull_request_number <= 2**63 - 1:
-                    return self._outcome
+                    reply = None
+        except Exception:
+            reply = None
+        # Persistence errors must escape, never be swallowed as transport errors.
+        if reply is not None:
+            if reply.status is SubmissionStatus.SUBMITTED:
                 return result(SubmissionStatus.SUBMITTED, True, "confirmed_draft", reply.pull_request_number)
             if reply.status is SubmissionStatus.REJECTED and reply.pull_request_number is None:
                 return result(SubmissionStatus.REJECTED, True, "confirmed_no_creation")
-        except Exception:
-            return self._outcome
-        return self._outcome
+        return result(SubmissionStatus.UNKNOWN, True, "dispatch_outcome_unknown")
