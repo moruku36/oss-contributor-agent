@@ -8,8 +8,9 @@ opens no files, network or processes, selects no backend, acquires no source
 and never submits anything. Candidate status and base SHA are caller-declared,
 not verified. The report only records caller-declared execution provenance
 (synthetic or unverified); it does not prove isolation, source authenticity or
-the base. Human approval is always pending. Draft PR submission stays
-unimplemented.
+the base. This outcome always leaves human approval pending. A separate
+injection-only review.draft_submission seam can prepare and dispatch an exact
+proposal through independently trusted authority and transport dependencies.
 '''
 from __future__ import annotations
 

@@ -59,9 +59,11 @@ report.
 - Not production-enabled: collector targets stay collect-only and nothing is wired
   into a CLI, service or schedule.
 
-## Known future gap
+## Separate injected submission seam
 
-`submit_draft_pr` remains `NotImplementedError`. A future approval-bound Draft PR
-step needs authenticated human approval bound to the exact report and diff hash,
-verified upstream base and project compliance review, plus a separate
-authorization boundary. This module provides none of these.
+The [draft submission boundary](draft-submission.md) can prepare an immutable
+request from this outcome and pass it through an explicitly trusted external
+human-approval authority and injected draft-only transport. The original
+two-argument `submit_draft_pr` still raises `NotImplementedError`. Candidate
+execution itself grants no approval and submits nothing. No concrete authority,
+transport, durable approval store or production activation is supplied.

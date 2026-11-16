@@ -1,4 +1,7 @@
-"""Pure bounded review artifacts; no execution, approval or submission authority."""
+"""Bounded review artifacts; optional submission delegates to trusted injections.
+
+Rendering is pure. No authority, transport or execution adapter is supplied here.
+"""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -7,6 +10,12 @@ import html
 import json
 from math import isfinite
 import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.review.draft_submission import (
+        DraftOnlyTransport, DraftRequest, HumanApprovalAuthority, SubmissionOutcome,
+    )
 
 from src.agent.core import (
     AttemptResult, CheckEvidence, LoopState, ModelReceipt, TestAssessment,
@@ -343,6 +352,25 @@ def build_pr_body(report: ReviewReport, pr_template: str | None = None) -> str:
     return _render(data, pr_template)
 
 
-def submit_draft_pr(report: ReviewReport, body: str) -> str:
-    """Submission remains unimplemented; generation is not approval."""
-    raise NotImplementedError("Phase 3: approval-bound draft PR submission")
+def submit_draft_pr(
+    report: ReviewReport, body: str, *, request: DraftRequest | None = None,
+    authority: HumanApprovalAuthority | None = None,
+    transport: DraftOnlyTransport | None = None,
+) -> SubmissionOutcome:
+    """Fail closed by default; explicit trusted injection is the only upgrade.
+
+    A digest or caller assertion cannot authorize dispatch. Durable once-only
+    consumption across calls belongs to the injected authority.
+    """
+    if request is None and authority is None and transport is None:
+        raise NotImplementedError("explicit approval authority and draft-only transport required")
+    from src.review.draft_submission import DraftRequest, DraftSubmission
+
+    if type(request) is not DraftRequest or authority is None or transport is None:
+        raise ValueError("request, trusted authority and trusted transport are all required")
+    detached = DraftRequest(request.snapshot_json)
+    data = detached.data
+    if (type(report) is not ReviewReport or report.snapshot_json != data["report_json"]
+            or type(body) is not str or body != data["body"]):
+        raise ValueError("report/body do not match prepared request")
+    return DraftSubmission(detached, authority=authority, transport=transport).run()
