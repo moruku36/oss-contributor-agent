@@ -393,4 +393,13 @@ class StagedRunnerBridge:
                 self._state = "ready"
         if _result_key(result) != self._current_key:
             raise EvidenceRejected("command result changed during assessment")
+        summary = assessment.runner_evidence
+        if summary is not None and (
+            summary.attempt_id, summary.dispatch_id, summary.generation,
+            summary.stage_name, summary.receipt_sha256, summary.command,
+        ) != (
+            record.ticket.attempt_id, record.ticket.dispatch_id, record.ticket.generation,
+            record.ticket.receipt.stage_name, record.ticket.receipt_sha256, record.ticket.command,
+        ):
+            raise EvidenceRejected("assessment does not bind the accepted dispatch")
         return assessment
