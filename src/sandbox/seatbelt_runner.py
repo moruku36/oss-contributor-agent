@@ -38,7 +38,8 @@ def _kill_and_reap(proc):
         proc.wait()
 
 
-def run_python(workspace, script_name, executable, runtime_roots, timeout=3.0):
+def run_python(workspace, script_name, executable, runtime_roots, timeout=3.0,
+               *, trusted_script=None):
     if platform.system() != "Darwin" or not stat.S_ISREG(os.lstat("/usr/bin/sandbox-exec").st_mode):
         raise RuntimeError("Darwin and a regular /usr/bin/sandbox-exec are required")
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 0 < timeout <= 10:
@@ -47,8 +48,16 @@ def run_python(workspace, script_name, executable, runtime_roots, timeout=3.0):
             or "/" in script_name or "\\" in script_name):
         raise ValueError("script_name must be a single .py basename")
     workspace, executable = os.fspath(workspace), os.fspath(executable)
+    if trusted_script is not None:
+        trusted_script = os.fspath(trusted_script)
+        root = os.path.realpath(workspace)
+        if (not isinstance(trusted_script, str) or not trusted_script.endswith(".py")
+                or trusted_script != os.path.realpath(trusted_script)
+                or os.path.commonpath((root, trusted_script)) == root):
+            raise ValueError("trusted_script must be a canonical .py path outside workspace")
+        runtime_roots = (*runtime_roots, os.path.dirname(trusted_script))
     policy = build_policy(workspace, executable, runtime_roots)
-    script = os.path.join(workspace, script_name)
+    script = os.path.join(workspace, script_name) if trusted_script is None else trusted_script
     info = os.lstat(script)
     if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
         raise ValueError("script must be regular, without symlinks or extra hard links")
