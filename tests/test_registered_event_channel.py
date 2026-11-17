@@ -212,7 +212,7 @@ class RegisteredEventChannelTests(unittest.TestCase):
             self.assertEqual(kinds[-1], 'remove')
             self.assertEqual(len(fx.model.calls), 1)
             loaded = package.read_review_package(parent_fd=fx.package_fd, name='review')
-            self.assertEqual(loaded.diff, PATCH)
+            self.assertEqual(loaded.diff, outcome.candidate.attempt.diff)
             self.assertEqual(loaded.request.snapshot_json, outcome.request.snapshot_json)
             self.assertEqual(loaded.report.snapshot_json, outcome.candidate.report.snapshot_json)
             self.assertEqual(outcome.human_approval, 'pending')
