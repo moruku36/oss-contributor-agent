@@ -30,6 +30,7 @@ from time import monotonic
 from typing import Protocol
 
 from src.agent.core import TestAssessment, TestOutcome
+from src.agent.evidence_summary import validate_summary
 from src.sandbox.docker_manager import CommandResult
 
 
@@ -291,6 +292,14 @@ class SnapshotWorkspace:
                 or not 0 <= assessment.assertion_failures <= assessment.tests_run):
             raise SnapshotError("malformed trusted runner assessment")
         _utf8(assessment.detail, cap)
+        if assessment.runner_evidence is not None:
+            validate_summary(
+                assessment.runner_evidence, attempt_id=attempt_id, command=result.command,
+                exit_code=result.exit_code, duration_seconds=result.duration_seconds,
+                outcome=assessment.outcome.value, tests_run=assessment.tests_run,
+                assertion_failures=assessment.assertion_failures, detail=assessment.detail,
+                result=result,
+            )
         return assessment
 
     def apply_patch(self, attempt_id: str, patch: str, *, timeout_seconds: float, max_bytes: int) -> bool:
