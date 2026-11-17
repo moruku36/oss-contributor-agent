@@ -53,7 +53,8 @@ def build_policy(workspace: str, executable: str,
     home = os.path.realpath(os.path.expanduser("~"))
     if any(_same(workspace, p) for p in (*_BROAD, home)):
         raise ValueError("workspace cannot be a broad root or home directory")
-    if any(_overlap(workspace, p) for p in (*_PROTECTED, executable, *roots)):
+    protected = tuple(os.path.realpath(p, strict=True) for p in _PROTECTED)
+    if any(_overlap(workspace, p) for p in (*protected, executable, *roots)):
         raise ValueError("workspace must be disjoint from protected and runtime paths")
     readers = [
         f'(subpath "{p}")'

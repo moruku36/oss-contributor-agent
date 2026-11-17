@@ -127,3 +127,23 @@ class SeatbeltPolicyTests(unittest.TestCase):
             with self.subTest(case=index):
                 with self.assertRaises(ValueError):
                     self._build(**kwargs)
+
+    def test_workspace_contains_canonical_protected_target(self):
+        executable = "/opt/runtime/python"
+        identities = {}
+
+        def canonical(value, strict=False):
+            return "/private/etc" if value == "/etc" else value
+
+        def attributes(value, *args, **kwargs):
+            path = canonical(os.fspath(value))
+            inode = identities.setdefault(path, len(identities) + 1)
+            mode = 0o100755 if path == executable else 0o040755
+            return os.stat_result((mode, inode, 1, 1, 0, 0, 0, 0, 0, 0))
+
+        with patch("os.path.realpath", side_effect=canonical) as realpath, \
+                patch("os.path.expanduser", return_value="/home"), \
+                patch("os.stat", side_effect=attributes):
+            with self.assertRaisesRegex(ValueError, "workspace must be disjoint"):
+                build_policy("/private", executable, ("/opt/runtime",))
+            realpath.assert_any_call("/etc", strict=True)
