@@ -103,6 +103,8 @@ def _request_data(snapshot: str) -> dict:
         if any(c in title for c in "\n\r\t"):
             raise ValueError("single-line title required")
         report = ReviewReport(_bounded(data["report_json"], MAX_SNAPSHOT_BYTES))
+        # The unchanged request envelope preserves either legacy report schema 1
+        # or strengthened schema 2 verbatim, including every scalar evidence byte.
         evidence = _report_data(report)
         target = _target(data["target"])
         if (target["repository"] != evidence["repo"]

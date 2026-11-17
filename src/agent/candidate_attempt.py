@@ -47,7 +47,7 @@ def _text(name: str, value: object, limit: int) -> str:
 
 @dataclass(frozen=True)
 class CandidateAttemptOutcome:
-    '''Local review artifact only. Approval is pending and nothing is submitted.'''
+    '''Detached attempt, including scalar runner evidence; approval stays pending.'''
 
     status: str  # pending_human_review | failed | report_failed
     attempt: AttemptResult

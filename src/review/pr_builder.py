@@ -22,6 +22,7 @@ from src.agent.core import (
     AttemptResult, CheckEvidence, LoopState, ModelReceipt, TestAssessment,
     TestCommand, TestOutcome, TestPlan,
 )
+from src.agent.evidence_summary import summary_from_data, validate_summary
 
 AI_DISCLOSURE_LINE = (
     "Disclosure: prepared with AI assistance. Local draft only; not submitted. "
@@ -79,7 +80,7 @@ def _canonical(data: dict) -> str:
 
 def _validate(data: dict) -> None:
     """Validate detached evidence, including each complete verification round."""
-    if type(data.get("schema_version")) is not int or data["schema_version"] != 1:
+    if type(data.get("schema_version")) is not int or data["schema_version"] not in (1, 2):
         raise ValueError("unsupported schema")
     repo = _text(data["repo"], 201, required=True)
     segment = r"[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,98}[A-Za-z0-9])?"
@@ -136,6 +137,15 @@ def _validate(data: dict) -> None:
     if a["tokens_used"] is not None and a["tokens_used"] != a["known_tokens_used"]:
         raise ValueError("aggregate usage mismatch")
     checks = _items(a["checks"], 256)
+    strengthened = data["schema_version"] == 2
+    if strengthened:
+        if (type(a.get("runner_evidence_version")) is not int
+                or a["runner_evidence_version"] != 1 or not 1 <= len(checks) <= 64):
+            raise ValueError("required strengthened evidence/version missing")
+    elif ("runner_evidence_version" in a
+          or any("runner_evidence" in c["assessment"] for c in checks)):
+        raise ValueError("legacy schema cannot carry strengthened evidence")
+    dispatches, stages = set(), set()
     for c in checks:
         LoopState(c["phase"])
         _text(c["command"], 4096, required=True)
@@ -155,6 +165,43 @@ def _validate(data: dict) -> None:
             c["exit_code"] <= 0 or not failures or not assessment["detail"].strip()
         ):
             raise ValueError("missing assertion failure evidence")
+        if strengthened:
+            e = summary_from_data(assessment["runner_evidence"])
+            validate_summary(
+                e, attempt_id=a["sandbox_attempt_id"], command=c["command"],
+                exit_code=c["exit_code"], duration_seconds=c["duration_seconds"],
+                outcome=assessment["outcome"], tests_run=count,
+                assertion_failures=failures, detail=assessment["detail"],
+            )
+            if (e.generation != len(dispatches) + 1 or e.dispatch_id in dispatches
+                    or e.stage_name in stages):
+                raise ValueError("duplicate or out-of-order runner evidence")
+            dispatches.add(e.dispatch_id)
+            stages.add(e.stage_name)
+    if strengthened:
+        # Failed attempts may contain a bounded prefix, including a terminal
+        # infrastructure/unknown check. Missing/reordered commands still reject.
+        expected = [(LoopState.BASELINE, command) for command in suite]
+        expected.append((LoopState.REPRODUCING, plan["reproduction"]["command"]))
+        verification = [(LoopState.VERIFYING_REPRODUCTION, plan["reproduction"]["command"])]
+        verification += [(LoopState.VERIFYING_SUITE, command) for command in suite]
+        for index, c in enumerate(checks):
+            if index < len(expected):
+                phase, command = expected[index]
+            else:
+                offset = index - len(expected)
+                phase, command = verification[offset % len(verification)]
+                if offset // len(verification) >= a["attempts_used"]:
+                    raise ValueError("check exceeds patch attempt count")
+            if (c["phase"], c["command"]) != (phase, command):
+                raise ValueError("strengthened check order/command mismatch")
+            outcome = c["assessment"]["outcome"]
+            if index + 1 < len(checks) and (
+                outcome not in (TestOutcome.PASS, TestOutcome.ASSERTION_FAILED)
+                or phase == LoopState.BASELINE and outcome != TestOutcome.PASS
+                or phase == LoopState.REPRODUCING and outcome != TestOutcome.ASSERTION_FAILED
+            ):
+                raise ValueError("checks follow a terminal runner outcome")
     if not a["success"]:
         if state == LoopState.SUCCEEDED:
             raise ValueError("false success/state mismatch")
@@ -291,15 +338,37 @@ def build_review_report(
             or not all(type(s) is LoopState for s in attempt.states)):
         raise ValueError("invalid evidence types")
     _text(attempt.diff, MAX_DIFF_BYTES)
+    if (type(attempt.runner_evidence_version) is not int
+            or attempt.runner_evidence_version not in (0, 1)):
+        raise ValueError("unsupported attempt runner evidence version")
+    strengthened = attempt.runner_evidence_version == 1
+    # Validate scalar records before asdict can recursively copy arbitrary data.
+    for c in attempt.checks:
+        e = c.assessment.runner_evidence
+        if strengthened:
+            validate_summary(
+                e, attempt_id=attempt.sandbox_attempt_id, command=c.command,
+                exit_code=c.exit_code, duration_seconds=c.duration_seconds,
+                outcome=c.assessment.outcome.value, tests_run=c.assessment.tests_run,
+                assertion_failures=c.assessment.assertion_failures, detail=c.assessment.detail,
+            )
+        elif e is not None:
+            raise ValueError("runner evidence requires strengthened attempt version")
+    attempt_data = asdict(attempt)
+    if not strengthened:
+        # Preserve historical schema-1 bytes; never fabricate a summary for it.
+        del attempt_data["runner_evidence_version"]
+        for c in attempt_data["checks"]:
+            del c["assessment"]["runner_evidence"]
     data = {
-        "schema_version": 1, "repo": issue.get("repo"),
+        "schema_version": 2 if strengthened else 1, "repo": issue.get("repo"),
         "issue_number": issue.get("number"), "issue_title": issue.get("title"),
         "base_commit": base_commit, "execution_kind": execution_kind,
         "plan": {
             "reproduction": asdict(plan.reproduction),
             "relevant_suite": [asdict(c) for c in plan.relevant_suite],
         },
-        "attempt": asdict(attempt),
+        "attempt": attempt_data,
         "diff_sha256": hashlib.sha256(attempt.diff.encode("utf-8")).hexdigest(),
         "diff_bytes": len(attempt.diff.encode("utf-8")),
     }
