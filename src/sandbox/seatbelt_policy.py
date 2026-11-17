@@ -58,7 +58,12 @@ def build_policy(workspace: str, executable: str,
         raise ValueError("workspace must be disjoint from protected and runtime paths")
     readers = [
         f'(subpath "{p}")'
-        for p in (workspace, "/System/Library", "/usr/lib", *roots)
+        for p in (
+            workspace, "/System/Library", "/usr/lib",
+            "/System/Cryptexes/OS/System/Library/dyld",
+            "/System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld",
+            *roots,
+        )
     ]
     readers.insert(1, f'(literal "{executable}")')
     return "\n".join((
@@ -66,6 +71,8 @@ def build_policy(workspace: str, executable: str,
         "(deny default)",
         f'(allow process-exec (literal "{executable}"))',
         "(allow file-read* " + " ".join(readers) + ")",
+        # dyld boot_boot opens /; PID 59087's denial led to ignition_halt.
+        '(allow file-read-data (literal "/"))',
         f'(allow file-write* (subpath "{workspace}"))',
         "",
     ))

@@ -32,7 +32,8 @@ class SeatbeltPolicyTests(unittest.TestCase):
             "(version 1)",
             "(deny default)",
             f'(allow process-exec (literal "{self.executable}"))',
-            f'(allow file-read* (subpath "{self.workspace}") (literal "{self.executable}") (subpath "/System/Library") (subpath "/usr/lib") (subpath "{self.runtime}"))',
+            f'(allow file-read* (subpath "{self.workspace}") (literal "{self.executable}") (subpath "/System/Library") (subpath "/usr/lib") (subpath "/System/Cryptexes/OS/System/Library/dyld") (subpath "/System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld") (subpath "{self.runtime}"))',
+            '(allow file-read-data (literal "/"))',
             f'(allow file-write* (subpath "{self.workspace}"))',
         ])
         self.assertTrue(policy.endswith("\n"))
