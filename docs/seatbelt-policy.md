@@ -1,0 +1,15 @@
+# Seatbelt policy builder
+
+`build_policy(workspace: str, executable: str, runtime_roots: tuple[str, ...]) -> str` constructs macOS Seatbelt profile text using Python 3.10+ and the standard library. It does not launch processes, install a sandbox, or validate macOS acceptance.
+
+Every supplied path must already exist, be absolute and normalized, and equal its strict filesystem realpath. Any symlink component, either quote character, backslash, control character, or other nonprintable character is rejected. Workspace and runtime roots must be directories; executable must be a regular file. Executable permissions and binary format are not checked. Invalid inputs raise `ValueError`; filesystem changes during validation can also cause filesystem errors.
+
+Runtime roots are explicitly trusted caller selections, not directories inferred or authenticated as Python installations. Choose only the minimal required Python/runtime library directories. Narrow installations beneath `/Library` or `/usr` are permitted; the exact roots `/`, `/Users`, `/Library`, and `/usr` are rejected, including filesystem identity aliases. The tuple may be empty; duplicate paths are collapsed.
+
+Workspace cannot equal those broad roots or the current process's home directory. It must neither contain nor be contained by any runtime root, the executable path, or these protected trees: `/System`, `/Library`, `/usr`, `/bin`, `/sbin`, `/etc`, `/dev`. Ancestor comparisons include filesystem identities to catch case aliases and aliases of protected roots. A staging directory beneath home is permitted when otherwise disjoint.
+
+The generated profile declares version 1 and denies by default. Its only grants are execution of the literal executable, `file-read*` for that literal file and the workspace, `/System/Library`, `/usr/lib`, and runtime subtrees, and `file-write*` for the workspace subtree. It grants neither networking nor process forking. It may require further narrowly justified permissions before a particular Python runtime works on macOS.
+
+The caller must create and keep the staging directory and its contents exclusive throughout use. Staging cannot contain secrets: sandboxed code would be permitted to read them. Caller-selected readable runtime trees must likewise contain nothing that needs to be hidden from that code. Keep trusted executable/runtime trees outside staging and prevent concurrent replacement of validated paths. Validation is a point-in-time check; it does not recursively inspect contents or eliminate hard links, mount aliases, or later races. Exclusive staging must exclude links or aliases to external sensitive or writable shared files.
+
+This builder establishes no CPU, memory, time, disk, or process-count limits and makes no resource-enforcement claim. A process runner and macOS OS-acceptance/integration checks are separate next increments. The six offline unit tests inspect construction and input rejection; they do not establish OS acceptance and were not run during authoring.
