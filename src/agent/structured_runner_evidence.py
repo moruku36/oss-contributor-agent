@@ -7,12 +7,16 @@ Single caller, one attempt, at most 64 dispatches; not hostile-Python protection
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from hashlib import sha256
 from math import isfinite
 from time import monotonic
 from typing import Protocol
 
 from src.agent.core import TestAssessment, TestCommand, TestOutcome
+from src.agent.evidence_summary import (
+    RunnerEvidenceSummary, result_digest, structured_classification, summary_digest,
+)
 from src.agent.filesystem_staging import StageReceipt, StagedFile
 from src.agent.snapshot_workspace import SnapshotError, _utf8
 from src.agent.staged_runner_bridge import (
@@ -166,18 +170,12 @@ def _assessment(summary: StructuredTestSummary, exit_code: int) -> TestAssessmen
             or summary.tests_run + summary.skipped + summary.collection_errors
             + summary.infrastructure_errors > 1_000_000):
         raise SnapshotError("inconsistent or over-limit summary counts")
-    if summary.test_errors or summary.collection_errors or summary.infrastructure_errors:
-        outcome, reason = TestOutcome.INFRA_ERROR, "test/collection/infrastructure errors"
-    elif not summary.complete or summary.truncated or not summary.outcome_known:
-        outcome, reason = TestOutcome.UNKNOWN, "incomplete, truncated or unknown outcome"
-    elif not summary.tests_run:
-        outcome, reason = TestOutcome.UNKNOWN, "empty or all-skipped run"
-    elif failures and exit_code > 0:
-        outcome, reason = TestOutcome.ASSERTION_FAILED, "authoritative assertion failures"
-    elif not failures and exit_code == 0:
-        outcome, reason = TestOutcome.PASS, "executed tests passed"
-    else:
-        outcome, reason = TestOutcome.UNKNOWN, "exit code contradicts structured summary"
+    classification, reason = structured_classification(
+        summary.tests_run, failures, summary.test_errors, summary.collection_errors,
+        summary.infrastructure_errors, summary.complete, summary.truncated,
+        summary.outcome_known, exit_code,
+    )
+    outcome = TestOutcome(classification)
     detail = (f"{reason}; executed={summary.tests_run}, skipped={summary.skipped}, "
               f"test_errors={summary.test_errors}, collection_errors={summary.collection_errors}, "
               f"infrastructure_errors={summary.infrastructure_errors}")
@@ -247,6 +245,20 @@ class StructuredRunnerEvidenceAdapter:
                     > max_output_bytes):
                 raise EvidenceRejected("mismatched, malformed or over-bound command result")
             assessment = _assessment(reply.summary, result.exit_code)
+            summary = reply.summary
+            # Only immutable scalar copies leave this adapter: no result, ticket,
+            # receipt, assertion tuple or backend response aliases are retained.
+            scalar = RunnerEvidenceSummary(
+                1, key[0], key[1], key[2], key[3], key[7], key[8], result_digest(result),
+                result.exit_code, result.duration_seconds, assessment.outcome.value,
+                summary.tests_run, summary.passed, assessment.assertion_failures,
+                summary.test_errors, summary.skipped, summary.collection_errors,
+                summary.infrastructure_errors, summary.complete, summary.truncated,
+                summary.outcome_known, sha256(assessment.detail.encode("utf-8")).hexdigest(),
+            )
+            assessment = replace(assessment, runner_evidence=replace(
+                scalar, binding_sha256=summary_digest(scalar),
+            ))
             if monotonic() >= deadline:
                 raise TimeoutError("structured backend returned after deadline; no retry")
             self._seen.append(result)

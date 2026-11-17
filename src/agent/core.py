@@ -15,6 +15,8 @@ from math import isfinite
 from time import monotonic
 from typing import Callable, Protocol, TypeVar
 
+from src.agent.evidence_summary import RunnerEvidenceSummary, validate_summary
+
 from src.sandbox.docker_manager import (
     CommandResult, Sandbox, SandboxBackendNotConfigured, SandboxCleanupError,
 )
@@ -113,6 +115,7 @@ class TestAssessment:
     tests_run: int = 0  # actually executed tests; excludes skipped tests
     assertion_failures: int = 0
     detail: str = ""
+    runner_evidence: RunnerEvidenceSummary | None = None
 
 
 @dataclass(frozen=True)
@@ -213,6 +216,7 @@ class AttemptResult:
     cleanup_confirmed: bool = False
     sandbox_attempt_id: str = ""
     elapsed_seconds: float = 0.0
+    runner_evidence_version: int = 0  # 0: legacy; 1: all checks require scalar evidence
 
 
 class _Stop(Exception):
@@ -291,6 +295,15 @@ class CoderLoop:
                     or len(verdict.detail.encode("utf-8")) > self.max_text_bytes):
                 raise _Stop(LoopState.UNKNOWN_OUTCOME, "infra_error", "malformed runner assessment")
             result.checks[-1] = replace(result.checks[-1], assessment=verdict)
+            if verdict.runner_evidence is not None:
+                result.runner_evidence_version = 1
+                validate_summary(
+                    verdict.runner_evidence, attempt_id=sandbox.attempt_id,
+                    command=raw.command, exit_code=raw.exit_code,
+                    duration_seconds=raw.duration_seconds, outcome=verdict.outcome.value,
+                    tests_run=verdict.tests_run, assertion_failures=verdict.assertion_failures,
+                    detail=verdict.detail, result=raw,
+                )
             if verdict.outcome == TestOutcome.PASS:
                 valid = raw.exit_code == 0 and verdict.tests_run > 0 and verdict.assertion_failures == 0
             elif verdict.outcome == TestOutcome.ASSERTION_FAILED:
