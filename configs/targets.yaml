@@ -162,3 +162,15 @@ targets:
       (2026-11-01). Issues already in the ledger keep their outcomes
       but are no longer re-listed. Source work needs Node 24.22.1+
       (midorun has Node 22; collection is unaffected).
+
+  - repo: Niko1221/Strata
+    enabled: true
+    mode: collect-only
+    languages: [cpp]
+    watch_labels:
+      - documentation
+      - accessibility
+    default_branch: main
+    notes: >
+      Monitor documentation and accessibility issues. No build, patch,
+      or PR activity; contribution requirements have not been verified.
