@@ -32,7 +32,10 @@ def test_real_targets_are_enabled_collect_only() -> None:
         "prometheus/prometheus",
         "brave/brave-browser",
         "openclaw/openclaw",
+        "Niko1221/Strata",
     }
+    (strata,) = [target for target in targets if target.repo == "Niko1221/Strata"]
+    assert sorted(strata.watch_labels) == ["accessibility", "documentation"]
     for target in targets:
         assert target.enabled is True
         assert target.mode == MODE_COLLECT_ONLY
