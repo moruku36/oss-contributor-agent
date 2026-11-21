@@ -174,3 +174,25 @@ targets:
     notes: >
       Monitor documentation and accessibility issues. No build, patch,
       or PR activity; contribution requirements have not been verified.
+
+  # OpenStreetMap is monitored per repository, not organization-wide.
+  - repo: openstreetmap/openstreetmap-website
+    enabled: true
+    mode: collect-only
+    languages: [ruby]
+    watch_labels: [help wanted]
+    default_branch: master
+
+  - repo: openstreetmap/iD
+    enabled: true
+    mode: collect-only
+    languages: [javascript]
+    watch_labels: [documentation]
+    default_branch: develop
+
+  - repo: openstreetmap/id-tagging-schema
+    enabled: true
+    mode: collect-only
+    languages: [json]
+    watch_labels: [documentation]
+    default_branch: main
