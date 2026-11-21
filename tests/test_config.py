@@ -33,6 +33,9 @@ def test_real_targets_are_enabled_collect_only() -> None:
         "brave/brave-browser",
         "openclaw/openclaw",
         "Niko1221/Strata",
+        "openstreetmap/openstreetmap-website",
+        "openstreetmap/iD",
+        "openstreetmap/id-tagging-schema",
     }
     (strata,) = [target for target in targets if target.repo == "Niko1221/Strata"]
     assert sorted(strata.watch_labels) == ["accessibility", "documentation"]
