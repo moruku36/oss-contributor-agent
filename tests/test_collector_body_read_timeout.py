@@ -3,6 +3,7 @@
 import io
 import json
 from http import HTTPStatus
+from http.client import IncompleteRead
 from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
@@ -12,32 +13,40 @@ from scripts import watch_repos
 from src.collector import github_client, ledger as ledger_mod
 
 
+PROVIDER_BODY = b'{"message":"SYNTHETIC_PRIVATE_PROVIDER_BODY"}'
+
+
 class FakeBody(io.BytesIO):
-    def __init__(self, payload, *, status=200, headers=None, times_out=False):
+    def __init__(self, payload, *, status=200, headers=None, read_error=None):
         super().__init__(payload)
         self.status = status
         self.headers = headers or {}
-        self.times_out = times_out
+        self.read_error = read_error
         self.read_count = 0
 
     def read(self, *args):
         self.read_count += 1
-        if self.times_out:
-            raise TimeoutError("SYNTHETIC_PRIVATE_TIMEOUT_DETAIL")
+        if self.read_error is not None:
+            raise self.read_error
         return super().read(*args)
 
 
 @pytest.mark.parametrize(
-    ("status", "headers", "times_out", "expected"),
+    ("status", "headers", "read_failure", "expected"),
     [
-        (200, {}, True, "GitHub API request failed; see the collector log"),
-        (304, {}, True, "GitHub API request failed; see the collector log"),
-        (503, {}, True, "GitHub API HTTP 503"),
-        (429, {"Retry-After": "1"}, True, "GitHub API rate limit exhausted"),
-        (403, {}, True, "GitHub API HTTP 403"),
-        (503, {}, False, "GitHub API HTTP 503"),
-        (429, {"Retry-After": "1"}, False, "GitHub API rate limit exhausted"),
-        (403, {}, False, "GitHub API HTTP 403"),
+        (200, {}, "timeout", "GitHub API request failed; see the collector log"),
+        (304, {}, "timeout", "GitHub API request failed; see the collector log"),
+        (503, {}, "timeout", "GitHub API HTTP 503"),
+        (429, {"Retry-After": "1"}, "timeout", "GitHub API rate limit exhausted"),
+        (403, {}, "timeout", "GitHub API HTTP 403"),
+        (503, {}, None, "GitHub API HTTP 503"),
+        (429, {"Retry-After": "1"}, None, "GitHub API rate limit exhausted"),
+        (403, {}, None, "GitHub API HTTP 403"),
+        (200, {}, "incomplete", "GitHub API request failed; see the collector log"),
+        (503, {}, "incomplete", "GitHub API HTTP 503"),
+        (429, {"Retry-After": "1"}, "incomplete", "GitHub API rate limit exhausted"),
+        (403, {}, "incomplete", "GitHub API HTTP 403"),
+        (403, {"X-RateLimit-Remaining": "0"}, "incomplete", "GitHub API rate limit exhausted"),
     ],
     ids=[
         "response-read-timeout",
@@ -48,19 +57,28 @@ class FakeBody(io.BytesIO):
         "http-unavailable-readable",
         "http-rate-limit-readable",
         "http-forbidden-readable",
+        "response-early-eof",
+        "http-unavailable-early-eof",
+        "http-rate-limit-early-eof",
+        "http-forbidden-early-eof",
+        "http-primary-rate-limit-early-eof",
     ],
 )
 def test_scheduled_collection_isolates_body_read_failure(
-    tmp_path, monkeypatch, caplog, capsys, status, headers, times_out, expected
+    tmp_path, monkeypatch, caplog, capsys, status, headers, read_failure, expected
 ):
     bad_path = "/repos/o/interrupted/issues"
     good_path = "/repos/o/healthy/issues"
     requests = []
+    errors = {
+        "timeout": TimeoutError("SYNTHETIC_PRIVATE_TIMEOUT_DETAIL"),
+        "incomplete": IncompleteRead(PROVIDER_BODY, expected=96),
+    }
     first_body = FakeBody(
-        b'{"message":"SYNTHETIC_PRIVATE_PROVIDER_BODY"}',
+        PROVIDER_BODY,
         status=status,
         headers=headers,
-        times_out=times_out,
+        read_error=errors.get(read_failure),
     )
     second_body = FakeBody(json.dumps([{"number": 9, "title": "short"}]).encode())
 
@@ -103,7 +121,7 @@ def test_scheduled_collection_isolates_body_read_failure(
     assert requests == [bad_path, good_path]
     assert first_body.read_count == second_body.read_count == 1
     assert second_body.closed
-    if times_out:
+    if read_failure is not None:
         assert first_body.closed
     (digest_path,) = reports.glob("digest-*.md")
     digest = digest_path.read_text(encoding="utf-8")
@@ -115,5 +133,7 @@ def test_scheduled_collection_isolates_body_read_failure(
 
     stdio = capsys.readouterr()
     assert "Collection pass complete: 1 issues seen, 1 new" in stdio.out
+    if status == 200 and read_failure == "incomplete":
+        assert "incomplete GitHub API response body" in caplog.text
     for diagnostic in (digest, caplog.text, stdio.out, stdio.err):
         assert "SYNTHETIC_PRIVATE_" not in diagnostic

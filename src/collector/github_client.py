@@ -24,7 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
-from http.client import HTTPResponse
+from http.client import HTTPResponse, IncompleteRead
 from typing import Callable
 
 API_BASE = "https://api.github.com"
@@ -61,12 +61,14 @@ class IssueRef:
 def _read_response_body(response: HTTPResponse | urllib.error.HTTPError, status: int) -> bytes:
     try:
         return response.read()
-    except TimeoutError:
+    except (TimeoutError, IncompleteRead) as exc:
         if status >= 400:
             # The client classifies HTTP failures from status and headers before
             # looking at the body. Keep that result even when the body is unreadable.
             return b""
-        raise GitHubAPIError("timed out reading GitHub API response body") from None
+        if isinstance(exc, TimeoutError):
+            raise GitHubAPIError("timed out reading GitHub API response body") from None
+        raise GitHubAPIError("incomplete GitHub API response body") from None
 
 
 def _default_transport(method: str, url: str, headers: dict) -> tuple[int, dict, bytes]:
