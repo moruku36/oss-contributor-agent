@@ -11,7 +11,8 @@ import sys
 from pathlib import Path
 
 from src.collector import ledger as ledger_mod
-from src.collector.github_client import IssueRef, RateLimitError
+from src.collector.digest import render_digest
+from src.collector.github_client import GitHubClient, IssueRef, RateLimitError
 from src.collector.llm_triage import LLMTriageError, LLMVerdict
 from src.collector.pipeline import run_collection_pass
 from src.config import Rules, Target
@@ -204,6 +205,21 @@ def test_rate_limit_on_one_repo_does_not_stop_the_run(tmp_path: Path) -> None:
     assert by_repo["o/healthy"].error == ""
     assert by_repo["o/healthy"].seen == 1
     assert store.get("o/healthy", 9).outcome == ledger_mod.OUTCOME_SKIPPED_LOW_SCORE
+    store.close()
+
+
+def test_http_error_digest_retains_status_without_provider_body(tmp_path: Path, caplog) -> None:
+    def transport(_method, _url, _headers):
+        return 503, {}, b'{\n    "message": "provider-only | diagnostic"\n}'
+
+    client = GitHubClient(transport=transport)
+    store, summary = _run(tmp_path, client)
+    digest = render_digest(summary)
+
+    assert "| o/r | collect-only | 0 | 0 | ⚠️ GitHub API HTTP 503 |" in digest.splitlines()
+    assert "provider-only" not in digest
+    assert "provider-only" not in caplog.text
+    assert not summary.decisions
     store.close()
 
 

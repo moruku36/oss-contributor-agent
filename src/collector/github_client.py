@@ -36,6 +36,10 @@ Transport = Callable[[str, str, dict], "tuple[int, dict, bytes]"]
 class GitHubAPIError(RuntimeError):
     """A GitHub API call failed (HTTP error or malformed response)."""
 
+    def __init__(self, message: str, *, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+
 
 class RateLimitError(GitHubAPIError):
     """The GitHub rate limit is exhausted: stop, do not retry."""
@@ -111,8 +115,8 @@ class GitHubClient:
                 f"(reset epoch: {reset}); stopping this target for this run"
             )
         if status >= 400:
-            detail = body[:200].decode("utf-8", errors="replace")
-            raise GitHubAPIError(f"GitHub API {status} for {path}: {detail}")
+            # Keep provider response bodies out of scheduled logs and digests.
+            raise GitHubAPIError(f"GitHub API {status} for {path}", status=status)
         try:
             return json.loads(body.decode("utf-8")) if body else None
         except (ValueError, UnicodeDecodeError) as exc:
