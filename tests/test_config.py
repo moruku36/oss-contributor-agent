@@ -171,3 +171,54 @@ def test_invalid_scoring_weight(tmp_path: Path, key: str, value: str) -> None:
     path = _write(tmp_path, "rules.yaml", f"rules:\n  triage_scoring:\n    {key}: {value}\n")
     with pytest.raises(ConfigError):
         load_rules(path)
+
+
+@pytest.mark.parametrize(
+    ("setting", "field"),
+    [
+        ('enabled: "false"', "enabled"),
+        ("enabled: 1", "enabled"),
+        ("enabled: null", "enabled"),
+        ("watch_labels: documentation", "watch_labels"),
+        ("watch_labels: 0", "watch_labels"),
+        ("watch_labels: null", "watch_labels"),
+        ('watch_labels: ["  "]', "watch_labels"),
+        ("watch_labels: [documentation, 123]", "watch_labels"),
+        ("watch_labels: {documentation: true}", "watch_labels"),
+    ],
+)
+def test_target_inventory_rejects_coerced_fields(
+    tmp_path: Path, setting: str, field: str
+) -> None:
+    config = _write(
+        tmp_path, "targets.yaml", f"targets:\n  - repo: owner/repo\n    {setting}\n"
+    )
+
+    with pytest.raises(ConfigError, match=field) as exc:
+        load_targets(config)
+
+    assert str(config) in str(exc.value)
+    assert "owner/repo" in str(exc.value)
+
+
+def test_target_inventory_preserves_valid_label_text_and_disabled_defaults(
+    tmp_path: Path,
+) -> None:
+    config = _write(
+        tmp_path,
+        "targets.yaml",
+        "targets:\n"
+        "  - repo: owner/defaults\n"
+        "  - repo: owner/disabled\n"
+        "    enabled: false\n"
+        "    watch_labels: []\n"
+        "  - repo: owner/enabled\n"
+        "    enabled: true\n"
+        '    watch_labels: [documentation, " needs triage "]\n',
+    )
+
+    default, disabled, enabled = load_targets(config)
+    assert (default.enabled, default.watch_labels) == (False, [])
+    assert (disabled.enabled, disabled.watch_labels) == (False, [])
+    assert (enabled.enabled, enabled.watch_labels) == (True, ["documentation", " needs triage "])
+    assert all(target.collect_only for target in (default, disabled, enabled))
