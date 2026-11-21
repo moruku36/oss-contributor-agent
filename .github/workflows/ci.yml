@@ -32,3 +32,9 @@ jobs:
             tests/test_review_report.py::test_success_snapshot_and_truthful_disclosure \
             tests/test_review_report.py::test_failed_unknown_and_invalid_evidence \
             tests/test_review_report.py::test_hostile_markdown_is_literal_and_no_side_effects
+
+      - name: Offline saved-candidate CLI tests
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+          PYTEST_ADDOPTS: ""
+        run: python -m pytest -q -o addopts= tests/test_saved_candidates.py
