@@ -126,13 +126,32 @@ def load_targets(path: str | Path) -> list[Target]:
                 f"{path}: target {raw['repo']} has unknown mode {mode!r}; "
                 f"valid modes are {sorted(_VALID_MODES)}"
             )
+        enabled = raw.get("enabled", False)
+        if not isinstance(enabled, bool):
+            raise ConfigError(
+                f"{path}: repo {raw['repo']!r}: field 'enabled' must be a bool"
+            )
+
+        watch_labels = raw.get("watch_labels", [])
+        if not isinstance(watch_labels, list):
+            raise ConfigError(
+                f"{path}: repo {raw['repo']!r}: field 'watch_labels' must be a list"
+            )
+
+        for label in watch_labels:
+            if not isinstance(label, str) or not label.strip():
+                raise ConfigError(
+                    f"{path}: repo {raw['repo']!r}: "
+                    "field 'watch_labels' must contain nonblank strings"
+                )
+
         targets.append(
             Target(
                 repo=str(raw["repo"]),
-                enabled=bool(raw.get("enabled", False)),
+                enabled=enabled,
                 mode=mode,
                 languages=list(raw.get("languages") or []),
-                watch_labels=list(raw.get("watch_labels") or []),
+                watch_labels=watch_labels,
                 build_command=str(raw.get("build_command") or ""),
                 test_command=str(raw.get("test_command") or ""),
                 lint_command=str(raw.get("lint_command") or ""),
