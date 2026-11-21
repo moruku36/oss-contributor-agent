@@ -140,6 +140,17 @@ python3 scripts/watch_repos.py --once
 です。再実行しても、判定済みの Issue が再トリアージされることは
 ありません。
 
+チェックアウトのルートから、候補として保存された Issue を一覧できます。
+
+```bash
+python3 -m src.collector.saved_candidates
+# 別の既存レジャーを参照する場合:
+python3 -m src.collector.saved_candidates --ledger /path/to/ledger.sqlite3
+```
+
+収集やレジャーの更新は行いません。結果は `repo` と `issue_number` の
+JSON 配列です（候補がなければ `[]`）。現在の GitHub 上の状態は確認しません。
+
 境界帯の Issue への LLM トリアージは、環境変数で有効化します。
 未設定の場合、境界帯は `pending_llm` 状態で保持され（推測で判定
 されることはありません）、設定後の実行で判定されます：

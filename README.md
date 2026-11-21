@@ -139,6 +139,18 @@ and in the day's digest at `reports/digest-YYYY-MM-DD.md`
 (git-ignored). Re-running never re-triages an issue that already has
 a recorded decision.
 
+From the checkout, list issue identities already saved as candidates:
+
+```bash
+python3 -m src.collector.saved_candidates
+# Inspect a different existing ledger:
+python3 -m src.collector.saved_candidates --ledger /path/to/ledger.sqlite3
+```
+
+This reads the existing ledger without running collection or updating the database.
+The JSON array contains `repo` and `issue_number` for each saved candidate
+(`[]` if none). It does not check current GitHub status.
+
 LLM triage for borderline issues is enabled through environment
 variables. When unconfigured, borderline issues wait in the explicit
 `pending_llm` state — never guessed at — and are judged by the first
