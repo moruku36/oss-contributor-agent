@@ -147,9 +147,17 @@ python3 -m src.collector.saved_candidates
 python3 -m src.collector.saved_candidates --ledger /path/to/ledger.sqlite3
 ```
 
+For a clean wheel install, the `src` namespace is not present. From any working directory, use the installed interpreter and an absolute quoted ledger path:
+
+```bash
+/path/to/venv/bin/python -m collector.saved_candidates --ledger "/path/to/ledger.sqlite3"
+```
+
 This reads the existing ledger without running collection or updating the database.
 The JSON array contains `repo` and `issue_number` for each saved candidate
 (`[]` if none). It does not check current GitHub status.
+
+SQLite opens the ledger read-only and never updates the database, but reading a live WAL can alter coordination sidecars. Use a consistent checkpointed snapshot to avoid touching a live ledger directory; do not use a naive DB-file copy during WAL writes.
 
 LLM triage for borderline issues is enabled through environment
 variables. When unconfigured, borderline issues wait in the explicit
