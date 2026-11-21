@@ -24,6 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
+from http.client import HTTPResponse
 from typing import Callable
 
 API_BASE = "https://api.github.com"
@@ -57,15 +58,29 @@ class IssueRef:
     url: str = ""
 
 
+def _read_response_body(response: HTTPResponse | urllib.error.HTTPError, status: int) -> bytes:
+    try:
+        return response.read()
+    except TimeoutError:
+        if status >= 400:
+            # The client classifies HTTP failures from status and headers before
+            # looking at the body. Keep that result even when the body is unreadable.
+            return b""
+        raise GitHubAPIError("timed out reading GitHub API response body") from None
+
+
 def _default_transport(method: str, url: str, headers: dict) -> tuple[int, dict, bytes]:
     request = urllib.request.Request(url, method=method, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            return response.status, dict(response.headers.items()), response.read()
+            return response.status, dict(response.headers.items()), _read_response_body(
+                response, response.status
+            )
     except urllib.error.HTTPError as exc:
-        # HTTPError still carries the status/headers/body we must inspect
-        # (rate-limit detection depends on them), so return, don't raise.
-        return exc.code, dict(exc.headers.items() if exc.headers else []), exc.read()
+        # Keep the status and headers for the client's rate-limit checks.
+        with exc:
+            response_headers = dict(exc.headers.items() if exc.headers else [])
+            return exc.code, response_headers, _read_response_body(exc, exc.code)
     except urllib.error.URLError as exc:
         raise GitHubAPIError(f"network error calling GitHub API: {exc.reason}") from exc
 

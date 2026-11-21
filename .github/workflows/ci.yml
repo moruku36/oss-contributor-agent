@@ -44,3 +44,9 @@ jobs:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
           PYTEST_ADDOPTS: ""
         run: python -m pytest -q -o addopts= tests/test_pipeline.py::test_http_error_digest_retains_status_without_provider_body
+
+      - name: Run offline collector body-read timeout regression
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+          PYTEST_ADDOPTS: ""
+        run: python -m pytest -q -o addopts= tests/test_collector_body_read_timeout.py
