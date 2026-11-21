@@ -38,3 +38,9 @@ jobs:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
           PYTEST_ADDOPTS: ""
         run: python -m pytest -q -o addopts= tests/test_saved_candidates.py
+
+      - name: Run offline HTTP error digest regression
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+          PYTEST_ADDOPTS: ""
+        run: python -m pytest -q -o addopts= tests/test_pipeline.py::test_http_error_digest_retains_status_without_provider_body
