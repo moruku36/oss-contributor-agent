@@ -37,7 +37,7 @@ from src.collector.digest import (
     RunSummary,
     TriageDecision,
 )
-from src.collector.github_client import GitHubAPIError, GitHubClient, IssueRef
+from src.collector.github_client import GitHubAPIError, GitHubClient, IssueRef, RateLimitError
 from src.collector.llm_triage import LLMTriageError, LLMTriager
 from src.config import Rules, Target
 
@@ -262,8 +262,13 @@ def run_collection_pass(
         except GitHubAPIError as exc:
             # Includes RateLimitError: log + skip this target, keep going.
             log.warning("collection failed for %s: %s", target.repo, exc)
-            repo_run.error = str(exc)
-            summary.notes.append(f"{target.repo}: 収集をスキップしました（{exc}）")
+            if isinstance(exc, RateLimitError):
+                repo_run.error = "GitHub API rate limit exhausted"
+            elif exc.status is not None:
+                repo_run.error = f"GitHub API HTTP {exc.status}"
+            else:
+                repo_run.error = "GitHub API request failed; see the collector log"
+            summary.notes.append(f"{target.repo}: 収集をスキップしました（{repo_run.error}）")
             continue
 
         repo_run.seen = len(issues)

@@ -24,6 +24,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
+from http.client import HTTPResponse, IncompleteRead
 from typing import Callable
 
 API_BASE = "https://api.github.com"
@@ -35,6 +36,10 @@ Transport = Callable[[str, str, dict], "tuple[int, dict, bytes]"]
 
 class GitHubAPIError(RuntimeError):
     """A GitHub API call failed (HTTP error or malformed response)."""
+
+    def __init__(self, message: str, *, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 class RateLimitError(GitHubAPIError):
@@ -53,15 +58,31 @@ class IssueRef:
     url: str = ""
 
 
+def _read_response_body(response: HTTPResponse | urllib.error.HTTPError, status: int) -> bytes:
+    try:
+        return response.read()
+    except (TimeoutError, IncompleteRead) as exc:
+        if status >= 400:
+            # The client classifies HTTP failures from status and headers before
+            # looking at the body. Keep that result even when the body is unreadable.
+            return b""
+        if isinstance(exc, TimeoutError):
+            raise GitHubAPIError("timed out reading GitHub API response body") from None
+        raise GitHubAPIError("incomplete GitHub API response body") from None
+
+
 def _default_transport(method: str, url: str, headers: dict) -> tuple[int, dict, bytes]:
     request = urllib.request.Request(url, method=method, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            return response.status, dict(response.headers.items()), response.read()
+            return response.status, dict(response.headers.items()), _read_response_body(
+                response, response.status
+            )
     except urllib.error.HTTPError as exc:
-        # HTTPError still carries the status/headers/body we must inspect
-        # (rate-limit detection depends on them), so return, don't raise.
-        return exc.code, dict(exc.headers.items() if exc.headers else []), exc.read()
+        # Keep the status and headers for the client's rate-limit checks.
+        with exc:
+            response_headers = dict(exc.headers.items() if exc.headers else [])
+            return exc.code, response_headers, _read_response_body(exc, exc.code)
     except urllib.error.URLError as exc:
         raise GitHubAPIError(f"network error calling GitHub API: {exc.reason}") from exc
 
@@ -111,8 +132,8 @@ class GitHubClient:
                 f"(reset epoch: {reset}); stopping this target for this run"
             )
         if status >= 400:
-            detail = body[:200].decode("utf-8", errors="replace")
-            raise GitHubAPIError(f"GitHub API {status} for {path}: {detail}")
+            # Keep provider response bodies out of scheduled logs and digests.
+            raise GitHubAPIError(f"GitHub API {status} for {path}", status=status)
         try:
             return json.loads(body.decode("utf-8")) if body else None
         except (ValueError, UnicodeDecodeError) as exc:
