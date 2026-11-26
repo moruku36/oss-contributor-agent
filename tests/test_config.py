@@ -36,6 +36,7 @@ def test_real_targets_are_enabled_collect_only() -> None:
         "openstreetmap/openstreetmap-website",
         "openstreetmap/iD",
         "openstreetmap/id-tagging-schema",
+        "stablyai/orca",
     }
     (strata,) = [target for target in targets if target.repo == "Niko1221/Strata"]
     assert sorted(strata.watch_labels) == ["accessibility", "documentation"]

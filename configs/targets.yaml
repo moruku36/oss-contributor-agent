@@ -196,3 +196,10 @@ targets:
     languages: [json]
     watch_labels: [documentation]
     default_branch: main
+
+  - repo: stablyai/orca
+    enabled: true
+    mode: collect-only
+    languages: [typescript, javascript]
+    watch_labels: [good first issue, help wanted]
+    default_branch: main
